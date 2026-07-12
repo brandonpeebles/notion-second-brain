@@ -96,7 +96,9 @@ matching by date alone would collide with them.
   creating a second one for the same date — prefer `update_content` /
   `insert_content` over a whole-page replacement, per
   `notion-conventions.md`, so concurrent human edits to the day's journal
-  entry aren't clobbered.
+  entry aren't clobbered. (This row upsert is unconditional; whether the
+  brief **content** is appended into that row is gated by §5 —
+  non-interactive runs only.)
 
 Exactly one `Type = Daily` Journal row exists per date after this step,
 whether this is the first run of the day or a re-run. Other rows sharing
@@ -155,5 +157,5 @@ Assertions: the brief lists overdue + due-today tasks across ALL task
 databases (queried one at a time, merged), grouped sensibly; a Calendar
 section appears IF a calendar tool is present in the session (otherwise
 it's omitted, not an error); a Journal row for today exists afterward
-(created if missing, updated if already present — one row per date); no
-prompts are issued at any point (Routine-safe).
+(created if missing, updated if already present — one `Type = Daily` row
+per date); no prompts are issued at any point (Routine-safe).

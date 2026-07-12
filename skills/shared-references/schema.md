@@ -73,8 +73,10 @@ The wiki is a Notion wiki (databases under the hood). Agent-facing metadata =
 title, timestamps, Owner, Verification, hierarchy, content. Custom properties
 (e.g. Tags) are **human-only** — MCP cannot set them on wiki pages; only
 Verification is settable (`notion-update-page` `update_verification`, optional
-expiry days). New wiki pages must parent to the wiki **page** URL, not the data
-source.
+expiry days). `wiki.database_id` identifies the wiki **page** and is the
+**parent target** for creating new wiki pages; `wiki.data_source_url` is used
+only for structured queries against the wiki. New wiki pages must parent to
+`wiki.database_id` (the wiki page), never to `wiki.data_source_url`.
 
 ## Adopt / patch rules (used by `setup`)
 

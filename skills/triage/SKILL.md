@@ -29,8 +29,8 @@ Same pattern as `capture` and `today`: look for `config.json` in the launch
 folder first. If present and valid, read `inbox.data_source_url`,
 `tasks_personal.data_source_url`, `shared_spaces[].tasks` (and
 `shared_spaces[].members`), `journal.data_source_url`,
-`archive.data_source_url`, `wiki.data_source_url` and the wiki page URL
-under `wiki`, `home_page`, and `preferences.timezone` from it.
+`archive.data_source_url`, `wiki.data_source_url`, `wiki.database_id` (the
+wiki page URL), `home_page`, and `preferences.timezone` from it.
 
 If no `config.json` is found, fall back to discovery: `notion-search` for
 the root page named exactly `Second Brain` (emoji prefix allowed), then
@@ -126,12 +126,12 @@ counts and ages.)
   carried from the Inbox row's `Source`; `Assignee` set when routed to a
   shared space (§3/§6). Then `notion-update-page` the Inbox row:
   `Triage = Promoted`.
-- **Wiki** → `notion-create-pages` parented to the **wiki page URL** from
-  config — never the wiki's data source URL, per the wiki parent-URL quirk
-  in `notion-conventions.md`. Title from the Inbox row's `Name`; body seeded
-  from the row's content/`Source`. Do not attempt to set custom wiki
-  properties (e.g. Tags) via MCP — they're human-only. Then
-  `notion-update-page` the Inbox row: `Triage = Promoted`.
+- **Wiki** → `notion-create-pages` parented to the wiki **page** URL
+  (`wiki.database_id` from config) — never `wiki.data_source_url`, per the
+  wiki parent-URL quirk in `notion-conventions.md`. Title from the Inbox
+  row's `Name`; body seeded from the row's content/`Source`. Do not attempt
+  to set custom wiki properties (e.g. Tags) via MCP — they're human-only.
+  Then `notion-update-page` the Inbox row: `Triage = Promoted`.
 - **Journal** → **always** `notion-create-pages` a **distinct new row** in
   `journal.data_source_url` for the promoted item: `Name` from the Inbox
   row, `Date` = the Inbox row's `Captured` date, body seeded from the row's

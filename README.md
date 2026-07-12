@@ -34,7 +34,7 @@ built-in Notion connector (no MCP config files, no hooks to wire up):
 
 ## Install
 
-**Claude Code**
+### Claude Code
 
 ```
 /plugin marketplace add brandonpeebles/notion-second-brain
@@ -45,12 +45,12 @@ If the repo is private, this works once you've added Claude's GitHub
 connection at claude.ai (Settings → Connectors). If you can't add that
 connection, the documented fallback is uploading the skills as a `.zip`.
 
-**claude.ai chat/mobile**
+### claude.ai chat/mobile
 
 Settings → Customize → Plugins → "Add from a repository", then point it at
 `brandonpeebles/notion-second-brain`.
 
-**Cowork, cloud sessions, and Routines**
+### Cowork, cloud sessions, and Routines
 
 Point them at the same repository — the Notion connector supplies the
 transport, so no extra setup is needed beyond what's above.

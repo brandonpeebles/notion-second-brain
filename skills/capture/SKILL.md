@@ -7,8 +7,8 @@ description: Use when the user wants to quickly capture a task, note, idea, or r
 
 Zero-decision capture of a task, note, idea, or reference into the second
 brain. Phone-first: minimize prompts, default to the Inbox, and only ask a
-question when a date is genuinely ambiguous or a shared space is implied but
-unresolved.
+question when a date is genuinely ambiguous, a shared space is implied but
+unresolved, or a shared-space task has no assignee named.
 
 Consult `../shared-references/schema.md` for the Inbox and Task schemas
 (property names/types) and the `config.json` key set. Consult

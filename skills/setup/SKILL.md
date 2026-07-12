@@ -86,7 +86,9 @@ If no wiki is found, walk the user through it:
 3. Ask the user to paste the resulting page URL back.
 
 Once you have the URL, adopt it: fetch it to confirm it's now a wiki, and
-record `wiki.database_id` and `wiki.data_source_url` (`collection://…`) for
+record `wiki.database_id` (the wiki page — the parent target other skills
+use when creating new wiki pages) and `wiki.data_source_url`
+(`collection://…`, used only for structured queries against the wiki) for
 `config.json`. Remind the user (once, not per-run) that new wiki pages must
 be parented to the wiki **page** URL, not its data source, and that custom
 properties like Tags are human-only — MCP can only set Verification.
