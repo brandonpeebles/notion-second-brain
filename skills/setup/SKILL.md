@@ -326,6 +326,26 @@ additively patch.
 
 Record each database's `data_source_url` for `config.json`.
 
+**Record the Inbox `Triage` values map.** Alongside the Inbox's
+`data_source_url`, record `inbox.triage_values` (the role→value map defined in
+`schema.md`) so `capture`/`triage` resolve the right `Triage` values:
+
+- **Scaffolded Inbox** (setup just created it): record the default map
+  `{ "new": "New", "processed": "Promoted", "kept": "Kept" }` — an identity map
+  over the values setup created.
+- **Adopted Inbox** (an existing DB, including a consolidated Raw DB): fetch the
+  `Triage` select's options. If they are exactly `New`/`Kept`/`Promoted`
+  (case-insensitive), record the default map above. Otherwise —
+  **interactive:** echo the options and ask which fills `new` (the unprocessed
+  queue value) and which fills `processed`; record `kept` only if the user
+  names a third option; record the confirmed map. **Non-interactive (Routine):**
+  record only the roles whose value matches an option by exact name (`New`→`new`,
+  `Processed`/`Promoted`→`processed`, `Kept`→`kept`); if `new` or `processed`
+  cannot be matched, **omit `inbox.triage_values` entirely** (skills then fall
+  back to the `schema.md` default) and report it as a pending pick for a later
+  interactive run, mirroring the wiki/Waiting pending-manual-step pattern (§10).
+  Never guess an unmatched role.
+
 ### 3b. Discover or scaffold the personal task DB (adopt-first)
 
 The personal task DB (`tasks_personal`) is **not** forced into the scaffold
@@ -615,9 +635,10 @@ Write `config.json` — on a bootstrap run to the **Step 0 repo's absolute path*
 (`<location>/config.json`), on an adopt run (Step 0 skipped) to the
 launch-folder cwd as before — with every key defined in
 `schema.md`: `user`, `notion_user_id`, `second_brain_root`, `home_page`,
-`agents_page`, `wiki` (`database_id`, `data_source_url`), `inbox`, `tasks_personal`,
-`journal`, `archive` (each with `data_source_url`, except `tasks_personal`
-when unresolved — see below), `shared_spaces` (array,
+`agents_page`, `wiki` (`database_id`, `data_source_url`),
+`inbox` (`data_source_url`, plus `triage_values` when recorded in §3),
+`tasks_personal`, `journal`, `archive` (each with `data_source_url`, except
+`tasks_personal` when unresolved — see below), `shared_spaces` (array,
 possibly empty), and `preferences` (`timezone`, `calendar_tool`). **Keep
 `timezone` in the key set** — it must not be dropped. Use the exact key
 names from `schema.md` — do not add, rename, or drop keys. `tasks_personal`
@@ -703,7 +724,8 @@ Smoke test (run against a live Notion workspace):
    page), then verify each after the user confirms.
 5. Re-run setup on the now-populated folder → it changes nothing (idempotent) and
    reports "all present".
-Assertions: config.json exists with non-empty second_brain_root, inbox,
+Assertions: config.json exists with non-empty second_brain_root, inbox
+(`data_source_url`, plus `triage_values` when setup recorded it per §3),
 tasks_personal, journal, archive, `home_page`, and `agents_page`; Notion shows
 the four DBs with correct properties (task DB unchanged from before the run —
 no DDL against it) and every page/DB shows exactly one icon (native icon, plain
