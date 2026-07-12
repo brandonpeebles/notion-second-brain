@@ -11,7 +11,7 @@ Tested surface is the **Claude Code CLI with the claude.ai Notion connector**; o
 ## Layout
 
 - `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` — plugin + single-plugin marketplace manifests.
-- `skills/<name>/SKILL.md` — the five skills: `setup`, `capture`, `today`, `triage`, `query`. Each has YAML frontmatter (`name`, `description`) and a `## Behavior` section of numbered steps, plus (except triage/query where inline) a `## Smoke test` block.
+- `skills/<name>/SKILL.md` — the seven skills: `setup`, `capture`, `today`, `triage`, `query`, `save-context`, `cowork-context`. Each has YAML frontmatter (`name`, `description`) and a `## Behavior` section of numbered steps, plus (except triage/query where inline) a `## Smoke test` block. `save-context` maintains a `## Second brain context` section in the *user-repo* `CLAUDE.md`; `cowork-context` compiles config + that context into a pasteable Cowork block.
 - `skills/shared-references/*.md` — the canonical contracts every skill imports by relative path. **These are the single source of truth; skills reference them and must not duplicate their content.**
 - `config.json` at repo root is a **local sample only** — the real one is written per-user into the launch-folder cwd and is gitignored (`config.json`, `**/config.json`). It holds workspace/user Notion IDs; never commit a real one and never echo those IDs into any tracked file.
 - `.superpowers/` and `docs/` hold SDD scratch/specs (gitignored / handoff docs), not shipped plugin content.
@@ -23,6 +23,7 @@ Tested surface is the **Claude Code CLI with the claude.ai Notion connector**; o
 - `notion-conventions.md` — live-learned Notion MCP quirks (icons, wiki creation, status defaults, no-trash, async writes, rate limits, connector identity).
 - `query-plan-gating.md` — the plan-gate error signature, per-tier map, and dual-path fallback decision tree.
 - `two-person-rules.md` — shared-space (partner) routing, assignee, and Waiting semantics.
+- `saved-context.md` — the managed `## Second brain context` section in the *user-repo* `CLAUDE.md`: what qualifies as saved context vs. config, the marker pair, and the append-only create/update/repair protocol (used by `save-context`, `setup`, `cowork-context`).
 
 ## Non-obvious invariants (violating these is a bug)
 

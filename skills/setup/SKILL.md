@@ -27,7 +27,9 @@ this skill executes in §3b/§7. Consult `../shared-references/notion-convention
 for MCP quirks (wiki creation, status defaults, no-trash, single-source
 queries, dual-path fallback, rate limits, async writes, connector identity),
 and `../shared-references/query-plan-gating.md` for the plan-gate error
-signature and per-tier gate map (used by the query-gating test, §8).
+signature and per-tier gate map (used by the query-gating test, §8). Consult
+`../shared-references/saved-context.md` for the managed `## Second brain context`
+section in the user-repo `CLAUDE.md` that this skill seeds (§0.3) and repairs (§2).
 `config.json`'s **keys** and the **internal DBs'** (Inbox/Journal/Archive)
 property names stay canonical — use them exactly as `schema.md` defines them,
 do not paraphrase or rename. **Task-DB property names and status values are
@@ -222,6 +224,12 @@ This is a **personal Notion second-brain** repo — it holds the local state and
   workspace/page IDs. That is safe because this repo is private, and it lets
   remote sessions (Cowork, Claude Code on the web) read the live config from the
   clone. Never copy it into the public plugin repo.
+
+## Second brain context
+<!-- ns2b:context:start -->
+<!-- Durable, workspace-specific context the plugin has learned. Managed by
+     /notion-second-brain:save-context; hand-edits here are preserved. -->
+<!-- ns2b:context:end -->
 ```
 
 Personal `README.md`:
@@ -274,6 +282,23 @@ for cross-session Cowork use, where there's no durable `config.json` — the
 AGENTS block is the only place the mapping survives between sessions, and
 reading it there is what prevents re-prompting the full disambiguation flow
 on every run.
+
+**Ensure the `CLAUDE.md` context section.** In the second-brain repo's
+`CLAUDE.md`, ensure exactly one `## Second brain context` section with an intact
+`<!-- ns2b:context:start -->`/`<!-- ns2b:context:end -->` marker pair exists —
+create it (after the `## Second brain repo` block) if missing, and collapse any
+duplicates into one, preserving every bullet, per `saved-context.md`. Step 0.3
+seeds it on a fresh bootstrap; this runs on every adopt/re-run so an older repo
+(cloned before this section existed, or drifted by a merge) gets it back. It
+edits that repo file only — never `config.json` or Notion.
+
+**Offer to save context you learn.** When the user reveals a durable,
+workspace-specific fact during this interactive run — a naming/tagging
+convention, a custom property worth weighing, a partner working preference, the
+kind of thing `saved-context.md` describes — offer to persist it, and write the
+bullet only on their OK. Never in Routine/non-interactive mode (§10). Structured
+config (timezone, DB mappings, member IDs) is **not** context — it belongs in
+`config.json`, so keep it there rather than in a context bullet.
 
 ### 3. Scaffold or adopt the internal databases (Inbox, Journal, Archive)
 
@@ -661,7 +686,8 @@ Smoke test (run against a live Notion workspace):
    under `~/src/<firstname>-notion-second-brain` (or `~/Documents/…`), inject
    `.gitignore` (not ignoring config.json), `.claude/settings.json` (marketplace
    + enabledPlugins + a Stop autocommit hook), `.claude/hooks/autocommit.sh`
-   (executable), `CLAUDE.md`, and a personal `README.md`, then push a first
+   (executable), `CLAUDE.md` (with an empty `## Second brain context` section and
+   the `ns2b:context` marker pair), and a personal `README.md`, then push a first
    commit. Re-running inside that repo skips Step 0 (0.0 detection).
 2. Expect setup to: ping the connector (notion-get-users) OK; find or create the
    "Second Brain" root; create/adopt Inbox, Journal, Archive with the
@@ -690,7 +716,10 @@ any ambiguous role and reports it as a pending pick instead of guessing.
 On a bootstrap run, the new repo exists with an origin remote, contains the
 five injected files, and its config.json is committed (not gitignored); a
 second run started with `cd <repo> && claude` detects config.json and skips
-Step 0.
+Step 0. The bootstrapped `CLAUDE.md` carries a `## Second brain context` section
+with the `ns2b:context` marker pair; a re-run against a repo whose `CLAUDE.md`
+is missing that section recreates it, and one with a duplicated section collapses
+it to a single section preserving every bullet (§2).
 
 ## Errors
 

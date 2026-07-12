@@ -28,7 +28,9 @@ for shared-vs-personal Task routing and assignee resolution. Consult
 `../shared-references/notion-conventions.md` for MCP quirks (single-source
 queries, the wiki parent-URL quirk, no page-trash tool, rate limits, async
 writes), and `../shared-references/query-plan-gating.md` for the plan-gate
-error signature and fallback decision tree. Use the config keys and the
+error signature and fallback decision tree. Consult
+`../shared-references/saved-context.md` when the sweep reveals a durable
+workspace convention worth persisting (§6b). Use the config keys and the
 internal (Inbox/Wiki/Journal/Archive) property names exactly as `schema.md`
 defines them — do not paraphrase or rename; task-DB property names and
 status values come from the mapping instead, per above.
@@ -223,6 +225,18 @@ in the batch-confirm step (§4), surface the gap and ask before writing (same
 as `capture`). Routine mode never reaches this — §4 diverts to a report page
 before any write, so the gap is simply visible in that report for the user
 to resolve on the next interactive run.
+
+### 6b. Offer to save context you learn
+
+If the sweep surfaces a durable, workspace-specific convention — a tag whose
+meaning changes how items should be triaged, a standing rule for where certain
+items belong, a partner working preference — offer to persist it as a
+`## Second brain context` bullet in the user-repo `CLAUDE.md`, per
+`../shared-references/saved-context.md`, and write it only on the user's OK.
+This is interactive only: in Routine mode (§4) never prompt or write — the
+report page is the sole output. Save **context**, not config: timezone, DB
+mappings, and member IDs still belong in `config.json` via `setup`, not in a
+context bullet.
 
 ### 7. Weekly-review mode
 

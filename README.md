@@ -9,7 +9,7 @@ unverified end-to-end (see Install below).
 
 ## What it is
 
-Five skills, all talking to your Notion workspace exclusively through the
+Seven skills, all talking to your Notion workspace exclusively through the
 built-in Notion connector (no MCP config files, no hooks to wire up):
 
 - **setup** — discovers or scaffolds the workspace structure, writes
@@ -28,6 +28,14 @@ built-in Notion connector (no MCP config files, no hooks to wire up):
 - **query** — answers questions from the second brain with structured
   filters or scoped semantic search over the wiki, tasks, and journal,
   returning a cited answer.
+- **save-context** — records a durable fact about your Notion setup (a
+  naming/tagging convention, a custom property worth weighing, a partner
+  preference) into a `## Second brain context` section of your repo's
+  `CLAUDE.md`, so future sessions honor it. `setup` and `triage` also offer to
+  save such facts as they surface.
+- **cowork-context** — compiles your config and saved context into one Markdown
+  block and copies it to your clipboard, ready to paste into a Cowork project's
+  instructions field so a filesystem-less Cowork session has what it needs.
 
 ### Bring your own task database
 
@@ -90,6 +98,11 @@ sessions, and Routines have not been tested end-to-end. The Notion connector
 itself supplies the transport wherever it's connected, but this README's
 tested and confirmed surface is the **Claude Code CLI with the claude.ai
 Notion connector**; treat anything beyond that as unconfirmed until verified.
+
+For Cowork specifically, run `cowork-context` in your local CLI to compile your
+config and saved context into a block you paste into the Cowork project's
+instructions field — a Cowork session has no durable filesystem, so it can't
+read your local `config.json`/`CLAUDE.md` directly.
 
 ## First run
 
