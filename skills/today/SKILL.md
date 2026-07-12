@@ -12,14 +12,21 @@ to run unattended in Routines — it never prompts, and when run
 non-interactively it also writes the brief into today's Journal row so it
 stays retrievable from Notion even if the session output is never seen.
 
-Consult `../shared-references/schema.md` for the Task schema (Status, Due,
-Assignee) and the Journal schema (Name, Date, Type), and the `config.json`
-key set. Consult `../shared-references/notion-conventions.md` for MCP
-quirks (single-source queries, dual-path fallback, concurrency-safe writes,
-rate limits, async writes), and `../shared-references/query-plan-gating.md`
-for the plan-gate error signature and fallback decision tree. Use the config
-keys and property names exactly as `schema.md` defines them — do not
-paraphrase or rename.
+Consult `../shared-references/schema.md` for the Journal schema (Name, Date,
+Type) and the `config.json` key set, and `../shared-references/task-db-mapping.md`
+for how each task DB's real property names and status values are resolved.
+Consult `../shared-references/notion-conventions.md` for MCP quirks
+(single-source queries, dual-path fallback, concurrency-safe writes, rate
+limits, async writes), and `../shared-references/query-plan-gating.md` for
+the plan-gate error signature and fallback decision tree. Use config keys
+and the Journal's property names exactly as `schema.md` defines them — the
+Journal is an internal DB with no mapping. Task-DB property names and status
+values are **never** hard-coded: for every task DB (personal and each shared
+space), resolve each role (`title`/`status`/`due`/`scheduled`/`assignee`/
+`priority`/`project`/`source`) through that DB's own `properties` and
+`status_values`, per `task-db-mapping.md`'s skill resolution rule — look up
+the role, use the returned real name, and skip (never substitute a canonical
+name) when a role isn't mapped for that DB.
 
 ## Behavior
 
@@ -43,8 +50,22 @@ plainly that the second brain isn't set up yet, point the user at the
 never silently produce a partial brief from missing config.
 
 Resolve "today" as a calendar date in `preferences.timezone` before issuing
-any query — every `Due <=` comparison and the Journal `Date` match below use
+any query — every date comparison and the Journal `Date` match below use
 this resolved date.
+
+**Unconfirmed-mapping guard:** for each task DB `today` will query (personal
+and every shared space), check its `confirmed`/`unconfirmed_roles` marker.
+If `status` is unconfirmed, skip that DB entirely (it can't be safely
+filtered to "not done" at all). If `due` is unconfirmed, skip that DB for
+the overdue/due-today buckets. If `scheduled` is unconfirmed, skip that DB
+for the planned-today bucket only. If `assignee` is unconfirmed for a shared
+DB, skip the "mine only" `⟨assignee⟩ = notion_user_id` filter for that DB —
+never apply an unconfirmed mapping — and report it as **unconfirmed —
+needs setup to confirm**, distinct from the unmapped-assignee case in §2. In
+every case, report which DB was skipped, for which bucket, and that `setup`
+must confirm that DB's mapping — this is a per-DB skip, not a hard stop for
+the whole brief; DBs with confirmed mappings still produce their part of the
+brief.
 
 ### 2. Query tasks — one data source at a time, merge in the skill layer
 
@@ -53,17 +74,42 @@ For `tasks_personal.data_source_url` and, separately, for each entry in
 independent **single-source** `notion-query-data-sources` call. Never issue a cross-data-source query —
 each call targets exactly one data source, per `notion-conventions.md`.
 
-- **Personal:** filter `Due <= today` AND `Status != Done`.
-- **Each shared space:** the same filter, plus `Assignee = me` (matched
-  against `notion_user_id`) — a shared brief only ever surfaces tasks
-  assigned to the current user, never a partner's.
+For each task DB, resolve its own `properties.due`, `properties.scheduled`,
+`properties.status`, `status_values.done[]`, and (for shared spaces)
+`properties.assignee` — per `task-db-mapping.md` — before building filters.
+Never assume any two DBs share property names.
+
+- **Personal:** filter `⟨due⟩ ≤ today AND status ∉ status_values.done[]`,
+  using this DB's own `properties.due` and `properties.status`.
+- **Each shared space:** the same filter, plus, when `properties.assignee`
+  is mapped **and confirmed**, `⟨assignee⟩ = notion_user_id` — a shared brief
+  only ever surfaces tasks assigned to the current user, never a partner's.
+  If a shared DB has **no** `assignee` mapping, it can't be narrowed to "mine
+  only" — do not silently include everyone's tasks or silently drop the DB;
+  query it unfiltered by assignee and clearly label that source's section in
+  the brief as **unfilterable by assignee (shows all tasks in this DB)** —
+  this DB doesn't track assignee. If a shared DB's `assignee` mapping is
+  present but listed in `unconfirmed_roles` (per the Unconfirmed-mapping
+  guard in step 1), do not apply the filter using that unconfirmed
+  mapping — query it unfiltered by assignee and label that source's section
+  as **unconfirmed — needs setup to confirm**, not unfilterable.
+- **A DB with no `due` mapping at all** is omitted from the overdue/due-today
+  buckets entirely — note this omission in the brief (a reportable omission,
+  not an error), the same way §3 notes an omitted Calendar section.
+- **Planned today:** for any DB whose `properties.scheduled` is mapped,
+  issue an additional `⟨scheduled⟩ = today` filter and surface those results
+  in a third **Planned today** bucket, alongside Overdue and Due today. Not
+  every DB maps `scheduled` — e.g. a personal Tasks DB that only maps `due`
+  simply contributes nothing to this bucket, with no error and no note (an
+  unmapped optional role is normal, not a degradation).
 
 Merge all results in this skill after every query returns — never ask
 Notion to span data sources. Split the merged set into **Overdue**
-(`Due < today`) and **Due today** (`Due = today`), and within each group,
-group sensibly by source (personal, then each shared space by name) so the
-brief reads as "what's overdue" / "what's due today" per space rather than
-one flat list.
+(`⟨due⟩ < today`), **Due today** (`⟨due⟩ = today`), and **Planned today**
+(`⟨scheduled⟩ = today`, only from DBs that map `scheduled`), and within each
+group, group sensibly by source (personal, then each shared space by name)
+so the brief reads as "what's overdue" / "what's due today" / "what's
+planned today" per space rather than one flat list.
 
 **Dual-path fallback:** if any `notion-query-data-sources` call **throws the
 plan-gate error** (the `400` signature in `query-plan-gating.md`, not a
@@ -111,8 +157,10 @@ Type-scoped.
 ### 5. Produce the brief; Routine-safe
 
 Always produce the brief as text in the response: Overdue tasks (grouped by
-source), Due-today tasks (grouped by source), Calendar section (if
-applicable, §3), and a note of any dual-path degradation (§2).
+source), Due-today tasks (grouped by source), Planned-today tasks (grouped
+by source, only from DBs mapping `scheduled`), Calendar section (if
+applicable, §3), and a note of any dual-path degradation, mapping-driven
+omissions, or unconfirmed-mapping skips (§2).
 
 **Never prompt** — nothing in this skill is worth blocking on; every
 ambiguity (missing calendar tool, degraded query path, empty task list) is
@@ -148,17 +196,31 @@ skipped.
   succeed): report the brief with whatever succeeded, and clearly flag
   which source failed and why — don't silently drop it or fail the whole
   brief for one bad data source.
+- **Unconfirmed mapping** (a task DB's `status`, `due`, or `scheduled` role
+  is listed under `unconfirmed_roles`): this is the same "partial failure,
+  report which source failed" pattern above, scoped to one DB and/or one
+  bucket rather than the whole brief — skip only the affected DB/bucket (per
+  the §1 guard), report that `setup` must confirm the mapping, and still
+  produce the rest of the brief from DBs with confirmed mappings.
 
 ## Smoke test
 
 Smoke test (run against a live Notion workspace):
-- Seed one overdue task and one due-today task (personal); optionally one
-  in a shared DB assigned to the current user.
+- Seed one overdue task and one due-today task (personal, using that DB's
+  own mapped due-role property and open status value); optionally one in a
+  shared DB assigned to the current user, and, if that shared DB maps
+  `scheduled`, one task scheduled for today.
 - Run `today`.
 
 Assertions: the brief lists overdue + due-today tasks across ALL task
-databases (queried one at a time, merged), grouped sensibly; a Calendar
-section appears IF a calendar tool is present in the session (otherwise
-it's omitted, not an error); a Journal row for today exists afterward
-(created if missing, updated if already present — one `Type = Daily` row
-per date); no prompts are issued at any point (Routine-safe).
+databases (queried one at a time, merged, each filtered through its own
+mapping — no literal `Due`/`Status`/`Done`/`Assignee` assumed), grouped
+sensibly; a Planned-today section appears for any DB that maps `scheduled`
+and is silently absent from DBs that don't; a Calendar section appears IF a
+calendar tool is present in the session (otherwise it's omitted, not an
+error); a DB with an unconfirmed `due`/`status`/`scheduled` role is skipped
+for the affected bucket and reported, not silently included or excluded; a
+Journal row for today exists afterward (created if missing, updated if
+already present — one `Type = Daily` row per date, using the Journal's
+canonical `Date`/`Type` properties, unaffected by task-DB mapping); no
+prompts are issued at any point (Routine-safe).
