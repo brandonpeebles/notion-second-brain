@@ -43,3 +43,31 @@ Tested surface is the **Claude Code CLI with the claude.ai Notion connector**; o
 - **Verification is manual and live**: run the affected skill against a real Notion workspace and check its `## Smoke test` assertions. There are no automated tests.
 - When you change a rule, change it in the relevant `shared-references/*.md` file and confirm the skills still *point to* it rather than restating it — divergence between a reference and the skills that import it is the main failure mode here.
 - Skills are invoked as `/notion-second-brain:<skill>` (e.g. `/notion-second-brain:setup`).
+
+## Cutting a release
+
+**Pushing to `main` is the actual publish** — `marketplace.json` `source: "./"` makes the repo its own marketplace, and installs fetch the default-branch HEAD. The version bump, tag, and GitHub Release are the **explicit version record**, not the delivery step.
+
+**When.** Cut a release when shipping a user-facing change to the skills or shared references. Bump `version` in `.claude-plugin/plugin.json` by user impact:
+- **MAJOR** — breaks a contract users depend on: `config.json` shape, `schema.md` DB schemas, or the task-DB role-mapping contract; removing/renaming a skill; anything that breaks an adopted workspace or forces a re-`setup`.
+- **MINOR** — additive capability: a new skill, a new behavior, an additive schema patch.
+- **PATCH** — prose/behavior fixes and doc corrections with no contract change.
+
+Before cutting, it's recommended (not required — there is no CI) to run the changed skills' `## Smoke test` assertions live against a real Notion workspace.
+
+**How** (worked `vX.Y.Z` example):
+1. (Recommended) Run the changed skills' `## Smoke test` and confirm the assertions.
+2. Bump `version` in `.claude-plugin/plugin.json` — **the only place the version lives** (`marketplace.json` and SKILL frontmatter carry none, so nothing else to sync).
+3. Commit (Conventional Commits; trailers auto-append), e.g. `chore: release vX.Y.Z`.
+4. Push `main`: `git push` — this is the actual publish to users.
+5. Tag and push it; the tag **must** match `plugin.json` (`v` + version):
+   ```bash
+   git tag vX.Y.Z
+   git push origin vX.Y.Z
+   ```
+6. Create the GitHub Release from the tag (no CHANGELOG — the Release body is the record):
+   ```bash
+   gh release create vX.Y.Z --title vX.Y.Z --notes "…summary of user-facing changes…"
+   ```
+
+No tags exist yet — `v0.1.0` would be the first.
