@@ -47,8 +47,8 @@ this resolved date.
 ### 2. Query tasks — one data source at a time, merge in the skill layer
 
 For `tasks_personal.data_source_url` and, separately, for each entry in
-`shared_spaces[].tasks`, issue an independent **single-source**
-`notion-query-data-sources` call. Never issue a cross-data-source query —
+`shared_spaces[]` (using that entry's `.tasks.data_source_url`), issue an
+independent **single-source** `notion-query-data-sources` call. Never issue a cross-data-source query —
 each call targets exactly one data source, per `notion-conventions.md`.
 
 - **Personal:** filter `Due <= today` AND `Status != Done`.
@@ -108,13 +108,19 @@ ambiguity (missing calendar tool, degraded query path, empty task list) is
 reported, not asked about. This must hold whether invoked interactively or
 from a Routine.
 
-**When run non-interactively** (e.g. from a Routine, with no one to read
-the chat response): also write or append the brief text into today's
-Journal row (§4) via `insert_content`, so the brief is retrievable from
-Notion even though no one saw the session output. When run interactively,
-this Journal write still happens (it's the same upsert either way) — the
-distinction is only that non-interactive runs must not depend on the chat
-response being read.
+The §4 Journal **row** upsert (create/update the row with `Date` = today
+and `Type` = `Daily`, one row per date) is **unconditional** — it happens
+on every run, interactive or not.
+
+Appending the brief **content** into that row's body via `insert_content`
+is **interactivity-gated**: do it **only when run non-interactively** (e.g.
+from a Routine, with no one reading the chat response), so the brief stays
+retrievable from Notion even though no one saw the session output. When run
+interactively, do **not** append the brief content into the row body — the
+user is reading it in the chat response, and repeated interactive runs in a
+day would otherwise bloat the same day's Journal row with duplicate copies
+of the brief. The row upsert still runs; only the content-append is
+skipped.
 
 ## Errors
 
