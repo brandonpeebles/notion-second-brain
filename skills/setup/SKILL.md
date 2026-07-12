@@ -123,8 +123,12 @@ git -C "<location>" commit -m "chore: bootstrap second brain repo"
 git -C "<location>" push -u origin main
 ```
 (If 0.4 already pushed via `gh repo create --push`, this commit just adds any
-files written after that push.) After this first push, subsequent syncs are
-automatic via the Stop hook (0.3) — including `config.json` once §9 writes it.
+files written after that push.) The auto-commit Stop hook (0.3) keeps future
+sessions synced automatically — but only for sessions started **from
+`<location>`**; it cannot fire during *this* run, since the active session's
+cwd is wherever the user started `claude`, not `<location>`. That means this
+run's own later writes (`config.json` in §9) need an explicit commit — see
+§9's closing step.
 
 **0.7 Continue.** Proceed to §2 and run the existing Notion steps as today, with
 one difference for this bootstrap run: write `config.json` (§9) into the new
@@ -614,10 +618,20 @@ Mirror the identical JSON into the AGENTS page's fenced config block (§6, via
 `insert_content`).
 
 `config.json` **is committed** in the user's *private* second-brain repo —
-that is how remote sessions read it, and the auto-commit Stop hook (Step 0.3)
-pushes it automatically. It is still **never** committed to the public
-**plugin** repo, and this skill still never writes personal data (names, IDs,
-workspace names) into the plugin's own output files.
+that is how remote sessions read it. On an **adopt** run the auto-commit Stop
+hook (Step 0.3) picks it up automatically at session end. On a **bootstrap**
+run, commit and push it immediately instead of waiting on the hook — this
+run's own Stop hook can't fire against the new repo yet (see §0.6):
+
+```bash
+git -C "<location>" add -A
+git -C "<location>" commit -m "chore: add config.json"
+git -C "<location>" push
+```
+
+It is still **never** committed to the public **plugin** repo, and this skill
+still never writes personal data (names, IDs, workspace names) into the
+plugin's own output files.
 
 ### 10. Idempotency + Routine mode
 
