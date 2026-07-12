@@ -304,7 +304,8 @@ query-dependent skills, not written into `config.json`'s schema.
 Write `config.json` to the launch folder with every key defined in
 `schema.md`: `user`, `notion_user_id`, `second_brain_root`, `home_page`,
 `wiki` (`database_id`, `data_source_url`), `inbox`, `tasks_personal`,
-`journal`, `archive` (each with `data_source_url`), `shared_spaces` (array,
+`journal`, `archive` (each with `data_source_url`, except `tasks_personal`
+when unresolved — see below), `shared_spaces` (array,
 possibly empty), and `preferences` (`timezone`, `calendar_tool`). **Keep
 `timezone` in the key set** — it must not be dropped. Use the exact key
 names from `schema.md` — do not add, rename, or drop keys. `tasks_personal`
