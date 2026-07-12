@@ -1,0 +1,12 @@
+{
+  "name": "notion-second-brain-marketplace",
+  "owner": { "name": "brandonpeebles" },
+  "description": "Marketplace hosting the notion-second-brain plugin.",
+  "plugins": [
+    {
+      "name": "notion-second-brain",
+      "source": "./",
+      "description": "Operate a two-person second brain on Notion via the built-in connector."
+    }
+  ]
+}

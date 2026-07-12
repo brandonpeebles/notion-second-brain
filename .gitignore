@@ -1,0 +1,6 @@
+# Personal config — never committed (contains workspace/user IDs)
+config.json
+**/config.json
+
+# OS / editor cruft
+.DS_Store
