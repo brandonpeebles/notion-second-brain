@@ -14,7 +14,10 @@ different property names — while every skill uses one code path.
 
 ## Role catalog
 
-**Mandatory roles** (setup fails loudly if it can't identify these):
+**Mandatory roles** (setup fails loudly if it can't find *any* candidate for
+these; if a candidate exists but is ambiguous, it is recorded under
+`unconfirmed_roles` like any other role — see Confirmed vs unconfirmed
+mappings below — not treated as a failure):
 
 | Role | Meaning |
 |---|---|
@@ -73,6 +76,10 @@ are still ambiguous.
 - Identity mappings (a freshly-scaffolded personal DB, property names chosen
   by the plugin itself) are `confirmed` by construction — there is nothing to
   disambiguate.
+- This applies uniformly to mandatory and optional roles: mandatory-ness only
+  changes what happens when *no* candidate exists at all (fail loudly, per
+  Role catalog above) — it does not exempt a mandatory role from landing in
+  `unconfirmed_roles` when a candidate is found but ambiguous.
 
 **Resolution rule addition:** If the active DB's mapping is unconfirmed for a
 role the operation needs, refuse that operation and report that setup must
