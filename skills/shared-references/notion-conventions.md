@@ -59,6 +59,25 @@ Learned via live tests 2026-07-11; encode here so they're never re-derived.
   `Archive` DB with `notion-move-pages` (or a property change). Data *sources*
   can be trashed via `notion-update-data-source {in_trash}` — not rows.
 
+## Referencing pages inline
+Two renderings, by audience — the source of truth for the Notion syntax is the MCP
+resource `notion://docs/enhanced-markdown-spec` (read it; don't guess mention syntax).
+- **In a Notion page/DB body** — use native mentions: `<mention-page url="URL"/>`
+  renders the page's live title + icon and **creates a backlink on the referenced
+  page**; `<mention-date start="YYYY-MM-DD"/>` renders a native date pill. The
+  self-closing form shows the UI-resolved title, so you don't have to pass one.
+- **In plain-text / chat (session) output** — use a `[title](url)` markdown link
+  (the same "page/row title + Notion link" citation pattern `query` already uses).
+  **Never emit `<mention-*>` tags to chat** — they render as raw XML outside Notion.
+- **Getting the URL:** every queried row carries a page id/URL on both the
+  structured (`notion-query-data-sources`) and fallback (`notion-search` /
+  `notion-fetch`) paths. Prefer the row's own URL; else construct
+  `https://www.notion.so/<id>` from the page id.
+- **Idempotency caveat:** a re-fetched body serializes mentions/date pills back in
+  *resolved* form, so any in-place `update_content` must match against the
+  **freshly-fetched** body text, never the string you originally wrote (this is
+  already how a fetch-then-replace sequence like `today` §4→§5 is ordered).
+
 ## Writes & concurrency
 - Prefer `update_content` / `insert_content` and property updates over whole-page
   replacement to avoid clobbering concurrent human edits.

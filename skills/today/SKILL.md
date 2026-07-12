@@ -17,7 +17,9 @@ Type) and the `config.json` key set, and `../shared-references/task-db-mapping.m
 for how each task DB's real property names and status values are resolved.
 Consult `../shared-references/notion-conventions.md` for MCP quirks
 (single-source queries, dual-path fallback, concurrency-safe writes, rate
-limits, async writes), and `../shared-references/query-plan-gating.md` for
+limits, async writes) and its **Referencing pages inline** convention (how
+each task links to its source row — native mentions in the Journal body,
+markdown links in chat), and `../shared-references/query-plan-gating.md` for
 the plan-gate error signature and fallback decision tree. Use config keys
 and the Journal's property names exactly as `schema.md` defines them — the
 Journal is an internal DB with no mapping. Task-DB property names and status
@@ -86,9 +88,14 @@ independent **single-source** `notion-query-data-sources` call. Never issue a cr
 each call targets exactly one data source, per `notion-conventions.md`.
 
 For each task DB, resolve its own `properties.due`, `properties.scheduled`,
-`properties.status`, `status_values.done[]`, and (for shared spaces)
-`properties.assignee` — per `task-db-mapping.md` — before building filters.
-Never assume any two DBs share property names.
+`properties.status`, `status_values.done[]`, `properties.project`, and (for
+shared spaces) `properties.assignee` — per `task-db-mapping.md` — before
+building filters. Never assume any two DBs share property names.
+
+For every row returned, **retain its page id/URL** (available on both the
+structured and fallback paths — see the **Referencing pages inline**
+convention in `notion-conventions.md`) alongside its mapped field values;
+§5 needs it to link each task back to its source row.
 
 - **Personal:** filter `⟨due⟩ ≤ today AND status ∉ status_values.done[]`,
   using this DB's own `properties.due` and `properties.status`.
@@ -176,6 +183,29 @@ by source, only from DBs mapping `scheduled`), Calendar section (if
 applicable, §3), and a note of any dual-path degradation, mapping-driven
 omissions, or unconfirmed-mapping skips (§2).
 
+**Per-task bullet.** Each task is one bullet that links back to its source
+row and carries light context — not a bare title. Two renderings, per the
+**Referencing pages inline** convention in `notion-conventions.md` (chat and
+Journal body differ; never emit `<mention-*>` tags to chat):
+
+- **References its source row** using the row's retained URL (§2) — Journal
+  body: `<mention-page url="⟨row url⟩"/>`; chat: `[⟨mapped title⟩](⟨row url⟩)`.
+- **Then appends context, each segment only when that DB maps the role** —
+  skip an unmapped role, never substitute a canonical name (same mapping rule
+  as everywhere else):
+  - **Due date** — Journal body: `<mention-date start="⟨due⟩"/>`; chat: a
+    human date — immediately followed by a computed **urgency label** from
+    `⟨due⟩` vs the §1 resolved today: `(⟨N⟩d overdue)` in the Overdue bucket,
+    `(due today)` in Due today, `(in ⟨N⟩d)` in Planned today.
+  - **Project** — the mapped `project` value when `project` is mapped for
+    that DB; omit the whole segment otherwise.
+
+Keep the existing grouping (bucket → source/space) and sort within each
+bucket by due date, most overdue first. Example (Journal body):
+`- <mention-page url="…"/> — due <mention-date start="2026-07-09"/> (3d overdue) · Home Reno`;
+same task in chat:
+`- [Fix the sink](https://www.notion.so/…) — due Jul 9 (3d overdue) · Home Reno`.
+
 **Never prompt** — nothing in this skill is worth blocking on; every
 ambiguity (missing calendar tool, degraded query path, empty task list) is
 reported, not asked about. This must hold whether invoked interactively or
@@ -198,7 +228,11 @@ copy** and repeated runs in a day never bloat the row:
   `content_updates: [{old_str: ⟨the exact existing section text, heading
   through its end, from the §4 body fetch⟩, new_str: ⟨the regenerated
   section⟩}]`. Because §4 fetched the current body immediately before this
-  write, the `old_str` exact-match holds. Content **outside** the section
+  write, the `old_str` exact-match holds — including the mention/date-pill
+  bullets, which the fetch returns in *resolved* form, so `old_str` must be
+  that fetched text, never the markdown you originally wrote (per the
+  Referencing pages inline idempotency caveat in `notion-conventions.md`).
+  Content **outside** the section
   (human edits, `triage`-promoted notes) is untouched — this is the
   concurrency-safe path from `notion-conventions.md`, not a whole-page
   replacement.
@@ -233,9 +267,10 @@ copy** and repeated runs in a day never bloat the row:
 
 Smoke test (run against a live Notion workspace):
 - Seed one overdue task and one due-today task (personal, using that DB's
-  own mapped due-role property and open status value); optionally one in a
-  shared DB assigned to the current user, and, if that shared DB maps
-  `scheduled`, one task scheduled for today.
+  own mapped due-role property and open status value); give one a mapped
+  `project` value and leave the other's project unset (to prove the skip).
+  Optionally one in a shared DB assigned to the current user, and, if that
+  shared DB maps `scheduled`, one task scheduled for today.
 - Run `today`.
 
 Assertions: the brief lists overdue + due-today tasks across ALL task
@@ -250,6 +285,14 @@ Journal row for today exists afterward (created if missing, updated if
 already present — one `Type = Daily` row per date, using the Journal's
 canonical `Date`/`Type` properties, unaffected by task-DB mapping) and its
 body contains the brief under a `## Daily Brief — ⟨date⟩` marker section;
+**each task bullet in the Journal body is a `<mention-page>` reference to its
+source row** (renders the task's icon + live title, and a backlink to the
+Journal row now appears on the referenced task), with a `<mention-date>` due
+pill and the correct urgency label (`(Nd overdue)` / `(due today)` /
+`(in Nd)`), and the project segment present only for the task that maps/sets
+it and absent otherwise (no canonical fallback); the **chat output** renders
+the same tasks as `[title](url)` markdown links, not raw `<mention-*>` tags;
 after a **second run the same day** the row still has exactly one Daily Brief
-section (refreshed in place, not duplicated) and any body content outside
-that section is unchanged; no prompts are issued at any point (Routine-safe).
+section (refreshed in place, not duplicated — the mention/date-pill bullets
+don't break the in-place match) and any body content outside that section is
+unchanged; no prompts are issued at any point (Routine-safe).
