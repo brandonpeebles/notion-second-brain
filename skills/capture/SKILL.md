@@ -12,11 +12,17 @@ unresolved, or a shared-space task has no assignee named.
 
 Consult `../shared-references/schema.md` for the Inbox and Task schemas
 (property names/types) and the `config.json` key set. Consult
-`../shared-references/two-person-rules.md` for shared-vs-personal routing and
-partner resolution. Consult `../shared-references/notion-conventions.md` for
-MCP quirks (rate limits, connector identity). Use the config keys and
-property names exactly as `schema.md` defines them — do not paraphrase or
-rename.
+`../shared-references/task-db-mapping.md` for how task-DB property names and
+status values are resolved. Consult `../shared-references/two-person-rules.md`
+for shared-vs-personal routing and partner resolution. Consult
+`../shared-references/notion-conventions.md` for MCP quirks (rate limits,
+connector identity). Inbox property names (`Name`/`Type`/`Source`/`Triage`/
+`Captured`) are canonical and fixed — use them exactly as `schema.md` defines.
+Task DB property names and status values are **not** canonical: resolve them
+per role (title/status/due/scheduled/assignee/priority/project/source)
+through the target task DB's `properties`/`status_values` mapping, per
+`task-db-mapping.md`; skip any role that isn't mapped for that DB; never
+hard-code a canonical name.
 
 ## Behavior
 
@@ -37,6 +43,14 @@ block, or finds multiple ambiguous candidates): **fail loudly**. State
 plainly that the second brain isn't set up yet, point the user at the
 `setup` skill, and **stop**. Never guess at IDs or invent a target.
 
+**Unconfirmed-mapping guard:** once a target task DB (`tasks_personal` or a
+`shared_spaces[].tasks` entry) is identified for this capture, check its
+`confirmed`/`unconfirmed_roles` marker before writing. If a role this capture
+needs (e.g. `status` for the open-default write, or `assignee` for a
+shared-space write) is listed under that DB's `unconfirmed_roles`, refuse the
+write to that DB, and report that `setup` must confirm the mapping first —
+never operate on an unconfirmed role.
+
 ### 2. Choose the target: Inbox (default) or Tasks (shortcut)
 
 **Default target is the Inbox.** Unless the straight-to-Tasks shortcut below
@@ -54,15 +68,27 @@ applies, create a row in `inbox.data_source_url` with `notion-create-pages`:
 **Straight-to-Tasks shortcut:** when the input is unambiguously a task —
 imperative phrasing plus a due date, or the user explicitly says "task" —
 create the row directly in the Tasks data source (personal or shared, per
-routing below) instead of the Inbox, with `notion-create-pages`:
+routing below) instead of the Inbox, with `notion-create-pages`. Resolve
+every property through the target DB's mapping (`properties`/
+`status_values`, per `task-db-mapping.md`) — this applies the same way
+whether the target is `tasks_personal` or a `shared_spaces[].tasks` entry,
+since even the personal DB carries an identity mapping:
 
-- `Name` — the captured text, cleaned.
-- `Status` — `Not started`.
-- `Due` — the parsed date (see NL dates below).
-- `Source` — a URL or short origin text if present; otherwise leave blank.
-- `Assignee` — required whenever the row is routed to a shared space; set it
-  from the named partner, or ask/flag when none is named (see routing below).
-  Never routed to a shared space → leave unset.
+- Title — write the captured text, cleaned, into the property named by
+  `properties.title`.
+- Status — write `status_values.open_default` into the property named by
+  `properties.status`.
+- Due — if `due` is mapped for this DB, write the parsed date (see NL dates
+  below) into `properties.due`; if `due` isn't mapped, skip this write
+  entirely.
+- Source — if `source` is mapped for this DB and a URL or short origin text
+  is present, write it into `properties.source`; if `source` isn't mapped,
+  skip this write.
+- Assignee — required whenever the row is routed to a shared space; if the
+  shared DB has no `assignee` mapping, flag that plainly rather than
+  attempting the write. Otherwise set the property named by
+  `properties.assignee` from the named partner, or ask/flag when none is
+  named (see routing below). Never routed to a shared space → leave unset.
 
 If the input doesn't clearly meet the shortcut bar, default to the Inbox —
 never guess a Task classification to avoid a follow-up question.
@@ -89,16 +115,17 @@ clearly implied by the input. Otherwise capture is personal — use
 When the input says "assign to <partner>" (or similar) and the target is a
 shared space: resolve `<partner>` against that space's `members` list from
 config, then confirm/resolve the Notion user via `notion-get-users`, and set
-`Assignee` to that person. If `<partner>` doesn't match a member of that
-space, say so plainly rather than guessing an ID, and leave `Assignee`
-unset.
+the property named by that DB's `properties.assignee` to that person. If
+`<partner>` doesn't match a member of that space, say so plainly rather than
+guessing an ID, and leave the property named by `properties.assignee` unset.
 
 **Shared tasks always get an Assignee** (`two-person-rules.md`: a shared-space
 task with no assignee is incomplete — ask or infer, don't leave it blank). So
 when the row is routed to a shared space's Tasks DB but no partner is named:
 in interactive mode, ask who it's for before writing; in Routine mode (§5),
-mirror the ambiguous-date pattern — leave `Assignee` unset, still create the
-row, and flag the missing assignee in the report rather than guessing.
+mirror the ambiguous-date pattern — leave the property named by
+`properties.assignee` unset, still create the row, and flag the missing
+assignee in the report rather than guessing.
 
 Never write into a partner's private area — shared writes only ever target
 the named shared space's own Tasks database.
@@ -109,9 +136,10 @@ If invoked non-interactively (no way to prompt for confirmation): create the
 Inbox (or Tasks) row without prompting, using the best resolution available.
 Report the resolved date and any routing decisions in the response instead
 of asking to confirm. If a date is genuinely ambiguous and there's no one to
-ask, leave `Due` unset, still create the row, and flag the ambiguity in the
-report rather than guessing. Apply the same pattern to a missing shared-space
-`Assignee` (§4): leave it unset, still create the row, and flag it.
+ask, leave the property named by `properties.due` unset, still create the
+row, and flag the ambiguity in the report rather than guessing. Apply the
+same pattern to a missing shared-space assignee (§4): leave the property
+named by `properties.assignee` unset, still create the row, and flag it.
 
 ### 6. Errors
 
@@ -131,9 +159,10 @@ Smoke test (run against a live Notion workspace):
     ("Friday → 2026-07-17") back for confirmation before/at write.
 - `capture "add 'buy anniversary gift' to the tasks for <a named shared
   space>, assign my partner"`
-  → routes to that shared space's Tasks DB (since it's named), `Assignee` =
-    partner resolved from that space's members; `Status` defaults to
-    `Not started`.
+  → routes to that shared space's Tasks DB (since it's named); the property
+    named by that DB's `properties.assignee` = partner resolved from that
+    space's members; the property named by `properties.status` is set to
+    that DB's `status_values.open_default`.
 
 Assertions: rows appear in Notion with the stated properties; the
 natural-language date is echoed and correct in the configured timezone.
