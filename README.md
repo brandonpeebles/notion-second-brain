@@ -93,23 +93,29 @@ Notion connector**; treat anything beyond that as unconfirmed until verified.
 
 ## First run
 
-Create a launch folder for the plugin's local state, e.g. `~/second-brain/`,
-then **`cd` into it before starting Claude Code** — a skill sees the
-process's working directory, not an abstract "launch folder," so `setup`
-only finds/writes `config.json` there if you actually `cd` first:
-
-```
-cd ~/second-brain/ && claude
-```
-
-Then run `setup`:
+Start Claude Code from anywhere and run `setup`:
 
 ```
 /notion-second-brain:setup
 ```
 
-`setup` writes `config.json` into that folder. The file holds your
-workspace's database and page IDs.
+On a fresh machine, `setup` begins by **creating a private GitHub repo** to be
+your second brain's home. It defaults the name from your Notion display name
+(e.g. `~/src/alice-notion-second-brain`, falling back to `~/Documents/…`) and
+lets you override the path and name. It injects a small scaffold — `.gitignore`,
+a `.claude/` config that enables this plugin and installs an auto-commit hook,
+`CLAUDE.md`, and a short README — pushes the first commit, and writes
+`config.json` into that repo. From then on, launch your second brain with:
+
+```
+cd <your-second-brain-repo> && claude
+```
+
+`config.json` holds your workspace's database and page IDs and lives
+**committed inside your private repo** (see Privacy). If you already have a
+second-brain repo — for example, cloned onto a new machine — just `cd` into it
+and run `setup`: it detects the existing `config.json` and adopts it instead of
+bootstrapping a new repo.
 
 ## Routine recipes
 
@@ -128,21 +134,25 @@ Routine) so you have an offline backup.
 
 ## Privacy
 
-The repo itself ships no personal data — every workspace-specific
-identifier (database IDs, page IDs, your user ID) lives only in `config.json`
-and the AGENTS page's config block inside your own Notion workspace, never in
-this repository.
+This **plugin repo** ships no personal data — every workspace-specific
+identifier (database IDs, page IDs, your user ID) lives in `config.json` and the
+AGENTS page's config block, never in this repository.
 
-`config.json` is written to **your launch-folder cwd** (see First run above)
-— it is not part of this plugin's repo, so this plugin's own `.gitignore`
-cannot protect it. If your launch folder happens to be inside a git repo you
-track, add your own `.gitignore` entry for `config.json` there, or use a
-launch folder that isn't a tracked repo at all.
+`config.json` lives **committed inside your own private second-brain repo**,
+which `setup` creates on first run (see First run). Committing it there is
+deliberate and safe: the repo is private, and it is what lets remote sessions
+(Cowork, Claude Code on the web) read your live config from the clone. Never
+copy `config.json` into this public plugin repo, and never paste your IDs into
+the plugin's own files.
 
-For Cowork/cloud sessions, there is no durable local filesystem: the AGENTS
-page's config block (inside your own Notion workspace) is the durable copy,
-and any `config.json` on that surface is just a per-session cache — the
-gitignore framing above doesn't apply there.
+For Cowork/cloud sessions there is also the AGENTS page's config block (inside
+your Notion workspace) as a durable, filesystem-independent copy of the same
+mapping.
+
+**Claude Code on the web:** the committed `.claude/settings.json` plugin config
+is not auto-loaded there — run `claude plugin install
+notion-second-brain@notion-second-brain-marketplace` once per web session to
+enable the skills.
 
 ## Future work
 
