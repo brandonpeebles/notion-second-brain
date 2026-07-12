@@ -8,9 +8,9 @@ description: Use when the user asks for their daily brief, what's due, or what's
 Daily brief: overdue and due-today tasks across every task database
 (personal plus each registered shared space), today's calendar events if a
 calendar tool is available, and an upserted Journal row for today. Designed
-to run unattended in Routines — it never prompts, and when run
-non-interactively it also writes the brief into today's Journal row so it
-stays retrievable from Notion even if the session output is never seen.
+to run unattended in Routines — it never prompts. On every run, interactive
+or not, it also writes the brief into today's Journal row so it stays
+retrievable from Notion even when the session output is never seen.
 
 Consult `../shared-references/schema.md` for the Journal schema (Name, Date,
 Type) and the `config.json` key set, and `../shared-references/task-db-mapping.md`
@@ -156,9 +156,12 @@ matching by date alone would collide with them.
   creating a second one for the same date — prefer `update_content` /
   `insert_content` over a whole-page replacement, per
   `notion-conventions.md`, so concurrent human edits to the day's journal
-  entry aren't clobbered. (This row upsert is unconditional; whether the
-  brief **content** is appended into that row is gated by §5 —
-  non-interactive runs only.)
+  entry aren't clobbered. (This row upsert is unconditional; the brief
+  **content** is always written/updated into the row per §5.)
+
+Then `notion-fetch` the matched (or newly created) row's page id to read its
+current body markdown — §5 needs the exact current text of any existing
+`## Daily Brief — ⟨date⟩` section to replace it in place.
 
 Exactly one `Type = Daily` Journal row exists per date after this step,
 whether this is the first run of the day or a re-run. Other rows sharing
@@ -182,15 +185,27 @@ The §4 Journal **row** upsert (create/update the row with `Date` = today
 and `Type` = `Daily`, one row per date) is **unconditional** — it happens
 on every run, interactive or not.
 
-Appending the brief **content** into that row's body via `insert_content`
-is **interactivity-gated**: do it **only when run non-interactively** (e.g.
-from a Routine, with no one reading the chat response), so the brief stays
-retrievable from Notion even though no one saw the session output. When run
-interactively, do **not** append the brief content into the row body — the
-user is reading it in the chat response, and repeated interactive runs in a
-day would otherwise bloat the same day's Journal row with duplicate copies
-of the brief. The row upsert still runs; only the content-append is
-skipped.
+Writing the brief **content** into that row's body is also **unconditional**
+— every run, interactive or not, so the brief stays retrievable from Notion
+even when no one saw the session output. Write it as one delimited section
+headed by a stable marker, `## Daily Brief — ⟨date⟩` (resolved date from
+§1), so re-runs **refresh that one section rather than appending a duplicate
+copy** and repeated runs in a day never bloat the row:
+
+- **No such section in the fetched body (first run of the day):** append it
+  with `insert_content` at `{"type":"end"}`.
+- **Section already present:** replace it in place with `update_content` —
+  `content_updates: [{old_str: ⟨the exact existing section text, heading
+  through its end, from the §4 body fetch⟩, new_str: ⟨the regenerated
+  section⟩}]`. Because §4 fetched the current body immediately before this
+  write, the `old_str` exact-match holds. Content **outside** the section
+  (human edits, `triage`-promoted notes) is untouched — this is the
+  concurrency-safe path from `notion-conventions.md`, not a whole-page
+  replacement.
+- **If the in-place replace fails to match** (e.g. the section was
+  hand-edited between fetch and write): fall back to appending a fresh
+  section with `insert_content` rather than erroring — persistence beats
+  perfect dedup, and the next run re-converges to a single section.
 
 ## Errors
 
@@ -233,5 +248,8 @@ error); a DB with an unconfirmed `due`/`status`/`scheduled` role is skipped
 for the affected bucket and reported, not silently included or excluded; a
 Journal row for today exists afterward (created if missing, updated if
 already present — one `Type = Daily` row per date, using the Journal's
-canonical `Date`/`Type` properties, unaffected by task-DB mapping); no
-prompts are issued at any point (Routine-safe).
+canonical `Date`/`Type` properties, unaffected by task-DB mapping) and its
+body contains the brief under a `## Daily Brief — ⟨date⟩` marker section;
+after a **second run the same day** the row still has exactly one Daily Brief
+section (refreshed in place, not duplicated) and any body content outside
+that section is unchanged; no prompts are issued at any point (Routine-safe).
