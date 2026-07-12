@@ -7,8 +7,9 @@ description: Use when the user wants to process or sweep the Inbox, or run a wee
 
 Sweep the Inbox: for each captured row, propose promoting it to a Task, a
 Wiki page, or a Journal entry — or archiving it (discard) — or leaving it in
-the Inbox as explicitly reviewed-but-not-ready (`Kept`). Present the full
-proposed mapping and get **one** confirmation, then execute the whole batch.
+the Inbox as explicitly reviewed-but-not-ready (the `kept` outcome). Present
+the full proposed mapping and get **one** confirmation, then execute the whole
+batch.
 v0.1 promotes to the wiki inline (no separate `ingestor` agent — that lands
 in v0.2).
 
@@ -41,6 +42,7 @@ status values come from the mapping instead, per above.
 
 Same pattern as `capture` and `today`: look for `config.json` in the launch
 folder first. If present and valid, read `inbox.data_source_url`,
+`inbox.triage_values` (optional — see `schema.md`),
 `tasks_personal.data_source_url`, `shared_spaces[].tasks` (and
 `shared_spaces[].members`), `journal.data_source_url`,
 `archive.data_source_url`, `wiki.data_source_url`, `wiki.database_id` (the
@@ -74,7 +76,8 @@ ambiguous role). This never applies to `shared_spaces[].tasks`, which has no
 ### 2. Read the Inbox — single-source query
 
 Issue one **single-source** `notion-query-data-sources` call against
-`inbox.data_source_url`, filtered to `Triage = New`. This is the working set
+`inbox.data_source_url`, filtered to `Triage =` the `new` value resolved from
+`inbox.triage_values` per `schema.md` (default `New`). This is the working set
 for a normal triage sweep. Never issue a cross-data-source query — the
 Inbox is the only data source read here (Tasks/Wiki/Journal/Archive are
 write-only targets in this skill, per `notion-conventions.md`).
@@ -119,9 +122,12 @@ For every row in the working set, propose exactly one of:
   durable reference material.
 - **Archive** — junk, duplicates, or anything not worth keeping (discard).
 - **Keep** — reviewed but not ready to decide (needs more info, an idea
-  still forming). No page is created; the row stays in the Inbox with
-  `Triage = Kept` so it resurfaces in a future sweep or the weekly review
-  (§7) instead of silently re-appearing as `New`.
+  still forming). No page is created. If `kept` is mapped in
+  `inbox.triage_values`, the row stays in the Inbox with `Triage =` the `kept`
+  value so it resurfaces in a future sweep or the weekly review (§7) instead of
+  silently re-appearing at the `new` value. If `kept` is **not** mapped (a
+  two-value scheme), the Keep outcome writes nothing and the row simply stays
+  at the `new` value — still in the queue for the next sweep.
 
 Use `Type` (the capturer's guess: Task/Note/Idea/Reference) and `Source` as
 signals, but the proposal is triage's own judgment, not a mechanical copy of
@@ -157,15 +163,17 @@ though no one is reading the chat response.
 Once confirmed (interactive path only — never in Routine mode, per §4),
 write each row to its destination.
 
-**Where each `Triage` state comes from** (`schema.md`'s enum is
-`New / Kept / Promoted`): a Task, Wiki, or Journal promotion sets the Inbox
-row's `Triage = Promoted`; the "Keep in Inbox" outcome sets `Triage = Kept`
-(reviewed, deliberately left in the Inbox to revisit); an untriaged row
-stays `Triage = New`. (The brief attaches "Promoted/Kept" to the Journal
-step; here `Kept` is factored out into its own Keep outcome so a
-Journal-promoted note is unambiguously `Promoted` and every `Kept` row is a
-reviewed-and-left-in-Inbox row — the two states the weekly review, §7, then
-counts and ages.)
+**Where each `Triage` state comes from** (values resolved from
+`inbox.triage_values` per `schema.md`; default `new`=`New`,
+`processed`=`Promoted`, `kept`=`Kept`): a Task, Wiki, or Journal promotion sets
+the Inbox row's `Triage =` the `processed` value; the "Keep in Inbox" outcome
+sets `Triage =` the `kept` value when `kept` is mapped (reviewed, deliberately
+left in the Inbox to revisit), or writes nothing and leaves the row at the
+`new` value when `kept` is unmapped; an untriaged row stays at the `new` value.
+(`kept` is factored out into its own Keep outcome so a Journal-promoted note is
+unambiguously `processed`, and every `kept` row is a reviewed-and-left-in-Inbox
+row — the two states the weekly review, §7, then counts and ages when `kept` is
+mapped.)
 
 - **Task** — blocked rows (§3's unconfirmed-mapping guard) are skipped here:
   report them as pending a `setup` mapping confirmation (§8), write nothing,
@@ -186,13 +194,13 @@ counts and ages.)
   (`Name`/`Status`/`Due`/`Source`/`Assignee`) directly — always resolve
   through the mapping, and never write to a role listed under that DB's
   `unconfirmed_roles`. Then `notion-update-page` the Inbox row:
-  `Triage = Promoted`.
+  `Triage =` the `processed` value (resolved from `inbox.triage_values`; default `Promoted`).
 - **Wiki** → `notion-create-pages` parented to the wiki **page** URL
   (`wiki.database_id` from config) — never `wiki.data_source_url`, per the
   wiki parent-URL quirk in `notion-conventions.md`. Title from the Inbox
   row's `Name`; body seeded from the row's content/`Source`. Do not attempt
   to set custom wiki properties (e.g. Tags) via MCP — they're human-only.
-  Then `notion-update-page` the Inbox row: `Triage = Promoted`.
+  Then `notion-update-page` the Inbox row: `Triage =` the `processed` value (resolved from `inbox.triage_values`; default `Promoted`).
 - **Journal** → **always** `notion-create-pages` a **distinct new row** in
   `journal.data_source_url` for the promoted item: `Name` from the Inbox
   row, `Date` = the Inbox row's `Captured` date, body seeded from the row's
@@ -204,14 +212,16 @@ counts and ages.)
   the two skills can never clobber each other's Journal content. (A dedicated
   note `Type` arrives with the v0.3 `fold` schema extension; until then,
   unset is correct.) Then `notion-update-page` the Inbox row:
-  `Triage = Promoted`.
+  `Triage =` the `processed` value (resolved from `inbox.triage_values`; default `Promoted`).
 - **Archive (discard)** → `notion-move-pages` the Inbox row into
   `archive.data_source_url` — there is no page-trash tool, so the row must
   physically leave the Inbox, not just get flagged. `Archived` is automatic
   (`created_time`) — never set it manually. After the move, set
   `Origin = "Inbox"` via `notion-update-page` if it isn't already populated.
-- **Keep** → no page created, no move. `notion-update-page` the Inbox row:
-  `Triage = Kept`.
+- **Keep** → no page created, no move. If `kept` is mapped in
+  `inbox.triage_values`, `notion-update-page` the Inbox row: `Triage =` the
+  `kept` value (default `Kept`). If `kept` is unmapped, write nothing — the row
+  stays at the `new` value and remains in the queue.
 
 Execute writes per row; if one row's write fails mid-batch, continue with
 the rest and report exactly which rows succeeded and which failed (§8) —
@@ -241,14 +251,16 @@ context bullet.
 ### 7. Weekly-review mode
 
 When asked for a weekly review (or similar periodic-review framing) instead
-of a plain sweep: query the **full** Inbox (not filtered to `Triage = New`)
+of a plain sweep: query the **full** Inbox (not filtered to the `new` value)
 via the same single-source `notion-query-data-sources` call, and produce a
 summary in addition to (or instead of) the normal §3 proposals:
 
-- Counts by `Triage` (`New` / `Kept` / `Promoted`).
-- A called-out list of **stale** rows — `Triage = New` or `Kept` with
-  `Captured` older than 14 days — since these are the ones quietly aging in
-  the Inbox without a decision.
+- Counts by `Triage`, one bucket per value present in `inbox.triage_values`
+  (default `new`=`New` / `kept`=`Kept` / `processed`=`Promoted`; a two-value
+  scheme has no `kept` bucket).
+- A called-out list of **stale** rows — at the `new` value (or the `kept` value
+  when mapped) with `Captured` older than 14 days — since these are the ones
+  quietly aging in the Inbox without a decision.
 
 This summary is read-only and needs no confirmation. If the review also
 proposes fresh triage for the `New` rows, that proposal still goes through
@@ -284,8 +296,8 @@ Assertions: triage proposes a batch — (a) → Task, (b) → Wiki or Journal,
 (c) → Archive — presents it as a single mapping, and gets exactly **one**
 confirmation. After confirming:
 - (a) a Task row exists in the appropriate Tasks database with the expected
-  properties, and the Inbox row's `Triage = Promoted`.
+  properties, and the Inbox row's `Triage =` the `processed` value (resolved from `inbox.triage_values`; default `Promoted`).
 - (b) a Wiki page (parented to the wiki **page** URL, not its data source)
-  or a Journal row exists, and the Inbox row's `Triage = Promoted`.
+  or a Journal row exists, and the Inbox row's `Triage =` the `processed` value (resolved from `inbox.triage_values`; default `Promoted`).
 - (c) the row has physically **moved** into the Archive database (not just
   flagged) and no longer appears in the Inbox.
