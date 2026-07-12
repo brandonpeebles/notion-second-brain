@@ -85,17 +85,23 @@ complete brief.
 ### 4. Journal upsert — one row per date
 
 Query `journal.data_source_url` (single-source `notion-query-data-sources`)
-for a row with `Date` = today (resolved date from §1).
+for a row matching **`Date` = today AND `Type` = `Daily`** (resolved date
+from §1). Match on both — never on `Date` alone: other skills (e.g.
+`triage`) file their own dated Journal rows with `Type` left unset, and
+matching by date alone would collide with them.
 
 - **No match:** create one with `notion-create-pages` — `Name` a short
   label for the date, `Date` = today, `Type` = `Daily`.
-- **Match found:** update that row rather than creating a second one for
-  the same date — prefer `update_content` / `insert_content` over a
-  whole-page replacement, per `notion-conventions.md`, so concurrent human
-  edits to the day's journal entry aren't clobbered.
+- **Match found:** update that single `Type = Daily` row rather than
+  creating a second one for the same date — prefer `update_content` /
+  `insert_content` over a whole-page replacement, per
+  `notion-conventions.md`, so concurrent human edits to the day's journal
+  entry aren't clobbered.
 
-Exactly one Journal row exists per date after this step, whether this is
-the first run of the day or a re-run.
+Exactly one `Type = Daily` Journal row exists per date after this step,
+whether this is the first run of the day or a re-run. Other rows sharing
+that date (e.g. `triage`-promoted notes) are untouched — the match is
+Type-scoped.
 
 ### 5. Produce the brief; Routine-safe
 

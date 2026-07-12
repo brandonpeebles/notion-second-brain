@@ -53,8 +53,11 @@ added by a one-time manual UI step (`setup` instructs and verifies it) into the
 | Date | date | |
 | Type | select | Daily / Digest |
 
-Daily entries are one row per day (`today` upserts by Date); `fold` will later add
-Digest rows and may extend this schema.
+`today` upserts the single `Type = Daily` row per date, matched by **Date +
+`Type` = `Daily`** (not Date alone). Items promoted into the Journal by
+`triage` are separate dated rows with `Type` left **unset**, so they never
+collide with `today`'s Type-scoped upsert. `fold` will later add Digest rows
+and a dedicated note `Type` (v0.3) and may extend this schema.
 
 ## Archive database schema
 

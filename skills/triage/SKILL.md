@@ -135,12 +135,15 @@ counts and ages.)
 - **Journal** → **always** `notion-create-pages` a **distinct new row** in
   `journal.data_source_url` for the promoted item: `Name` from the Inbox
   row, `Date` = the Inbox row's `Captured` date, body seeded from the row's
-  content/`Source`. Never match-and-insert into an existing Journal row.
-  `today` owns the single daily-brief row (`Type = Daily`) for each date and
-  appends the brief into it; triage must not write into that row, or it
-  would commingle/clobber the daily brief. A triage-promoted note is its own
-  dated row, separate from the daily-brief row. Then `notion-update-page`
-  the Inbox row: `Triage = Promoted`.
+  content/`Source`, and **leave `Type` unset** (do not set `Type = Daily`).
+  Never match-and-insert into an existing Journal row. The invariant: `today`
+  owns exactly the one `Type = Daily` row per date and finds it by matching
+  `Date + Type = Daily`; triage-promoted notes are separate dated rows with
+  `Type` left unset, so `today`'s Type-scoped upsert can never match them and
+  the two skills can never clobber each other's Journal content. (A dedicated
+  note `Type` arrives with the v0.3 `fold` schema extension; until then,
+  unset is correct.) Then `notion-update-page` the Inbox row:
+  `Triage = Promoted`.
 - **Archive (discard)** → `notion-move-pages` the Inbox row into
   `archive.data_source_url` — there is no page-trash tool, so the row must
   physically leave the Inbox, not just get flagged. `Archived` is automatic
