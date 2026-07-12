@@ -8,7 +8,8 @@ description: Use when setting up or repairing the Notion second brain — discov
 Foundational skill for the Notion second brain. Discovers or scaffolds the
 workspace structure, adopts what already exists, writes `config.json`,
 verifies the Notion connector, runs the query-gating test, and walks the user
-through two UI-only manual steps. Its successful run produces the live
+through up to two UI-only manual steps (wiki turn-into-wiki, and the Waiting
+status option — only when a personal task DB is newly scaffolded). Its successful run produces the live
 workspace every other skill (`capture`, `today`, `triage`, `query`) operates
 on. Idempotent and additive: re-running never destroys anything, and can be
 used to add more shared spaces later.
@@ -114,8 +115,15 @@ Otherwise, discover from scratch:
    select-typed property; display name matching `✅ Tasks`/"Tasks"/"To-do"
    is a strong signal but not required). Present the candidates found and
    ask the user which one (if any) is their personal task DB. In
-   non-interactive mode, skip straight to the scaffold branch below unless
-   exactly one obvious candidate exists.
+   non-interactive mode: **zero candidates found** → proceed to the scaffold
+   branch below (step 3); **exactly one obvious candidate** → adopt it (step
+   2); **two or more ambiguous candidates** (more than one plausible match,
+   none obviously "the one") → do **not** scaffold and do **not** guess —
+   leave `tasks_personal` unresolved for this run, record the candidate list
+   as a pending pick (mirroring how ambiguous *roles* are recorded under
+   `unconfirmed_roles` below, and the wiki/Waiting "pending manual step"
+   pattern in §10), and report it. Scaffolding a new DB only happens when no
+   candidate exists at all.
 2. **Adopt + map the chosen candidate** (no DDL, ever, against this DB):
    - Fetch its data source schema.
    - Run **role inference** (heuristics below) to identify `title`,
@@ -252,8 +260,9 @@ For each named shared space:
    confirmed mapping for this space's task DB, re-verify its properties
    still exist and skip to step 3. Otherwise run the same role-inference and
    `status_values`-derivation heuristics as §3b against this DB's schema:
-   identify `title`/`status` (fail loudly if either can't be identified) and
-   any optional roles present, derive `status_values` from its Status
+   identify `title`/`status` (no candidate property at all for either → fail
+   loudly, per §3b's rule; a candidate found but ambiguous → `unconfirmed_roles`,
+   not a failure) and any optional roles present, derive `status_values` from its Status
    groups, echo and confirm the mapping (interactive), or record ambiguous
    roles under `unconfirmed_roles` and report them as pending picks
    (non-interactive/Routine — never guess). This DB is never scaffolded and
