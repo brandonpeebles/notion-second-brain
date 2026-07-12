@@ -15,7 +15,9 @@ Consult `../shared-references/schema.md` for the Wiki, Task, Journal, and
 Inbox schemas (property names/types) and the `config.json` key set. Consult
 `../shared-references/notion-conventions.md` for MCP quirks (single-source
 queries, the dual-path rule, the wiki parent-URL quirk, rate limits, async
-writes). Use the config keys and property names exactly as `schema.md`
+writes), and `../shared-references/query-plan-gating.md` for the plan-gate error
+signature, the per-tier gate map, and the fallback decision tree. Use the config
+keys and property names exactly as `schema.md`
 defines them — do not paraphrase or rename.
 
 ## Behavior
@@ -104,9 +106,11 @@ too broad or misses an obviously-relevant page, say so rather than presenting
 it as exhaustive.
 
 **Degrade-and-note:** if a `notion-query-data-sources` call in §3 ever
-returns an upgrade/plan-gating prompt instead of results, degrade to this
-path for that data source only (scoped `notion-search` + `notion-fetch`
-covering the same question), and:
+**throws the plan-gate error** (a `400` `APIResponseError` matching the
+signature in `query-plan-gating.md` — not a generic 400 from a bad filter,
+which is a real bug to fix), do not retry it; degrade to this path for that
+data source only (scoped `notion-search` + `notion-fetch` covering the same
+question), and:
 
 - **Note the degradation explicitly** in the final answer — which data
   source fell back and that results may be less precisely filtered/sorted,
@@ -179,7 +183,7 @@ Smoke test (dual-path, both required):
 - **Fallback path:** force/simulate the search+fetch path (e.g. a
   wiki-content question "what did we decide about the venue?") →
   `notion-search` scoped + `notion-fetch` of hits → answer cites the pages.
-  If structured querying returns an upgrade prompt, confirm the skill
+  If structured querying throws the plan-gate error, confirm the skill
   degrades to this path and **notes the degradation** in its output.
 
 Assertions: each answer is grounded in fetched Notion content with citations

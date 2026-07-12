@@ -16,8 +16,10 @@ Consult `../shared-references/schema.md` for the Task schema (Status, Due,
 Assignee) and the Journal schema (Name, Date, Type), and the `config.json`
 key set. Consult `../shared-references/notion-conventions.md` for MCP
 quirks (single-source queries, dual-path fallback, concurrency-safe writes,
-rate limits, async writes). Use the config keys and property names exactly
-as `schema.md` defines them — do not paraphrase or rename.
+rate limits, async writes), and `../shared-references/query-plan-gating.md`
+for the plan-gate error signature and fallback decision tree. Use the config
+keys and property names exactly as `schema.md` defines them — do not
+paraphrase or rename.
 
 ## Behavior
 
@@ -63,12 +65,13 @@ group sensibly by source (personal, then each shared space by name) so the
 brief reads as "what's overdue" / "what's due today" per space rather than
 one flat list.
 
-**Dual-path fallback:** if any `notion-query-data-sources` call returns an
-upgrade/plan-gating prompt instead of results, fall back to scoped
-`notion-search` + `notion-fetch` of that data source for the same task
-list, and **note the degradation** in the brief (which DB fell back, and
-that results may be less precisely filtered/sorted since the fallback path
-can't apply the same structured filter).
+**Dual-path fallback:** if any `notion-query-data-sources` call **throws the
+plan-gate error** (the `400` signature in `query-plan-gating.md`, not a
+generic 400 from a bad filter), fall back to scoped `notion-search` +
+`notion-fetch` of that data source for the same task list, and **note the
+degradation** in the brief (which DB fell back, and that results may be less
+precisely filtered/sorted since the fallback path can't apply the same
+structured filter).
 
 ### 3. Calendar — auto-detect, omit if none
 

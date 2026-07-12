@@ -7,10 +7,12 @@ Learned via live tests 2026-07-11; encode here so they're never re-derived.
   data source. To span personal + shared task DBs, query each in turn and merge in
   the skill. Never issue a cross-data-source query.
 - **Dual path.** Primary: structured `notion-query-data-sources` (filter + sort).
-  Fallback: scoped `notion-search` + `notion-fetch` of known DBs. If the structured
-  tool returns an upgrade/plan-gating prompt, switch to the fallback, note the
-  degradation in the output, and surface the "Business upgrade vs. permanent
-  fallback" decision. Every query-dependent skill smoke-tests both paths.
+  Fallback: scoped `notion-search` + `notion-fetch` of known DBs. The plan gate
+  surfaces as a **thrown `400` `APIResponseError`**, not an inspectable "upgrade"
+  result — catch the error, switch to the fallback, note the degradation in the
+  output, and surface the "upgrade vs. permanent fallback" decision. See
+  `query-plan-gating.md` for the exact error signature, the per-tier gate map,
+  and the full decision tree. Every query-dependent skill smoke-tests both paths.
 - `notion-search` without Notion AI is workspace-scoped only — acceptable; note it.
 
 ## Wikis

@@ -17,7 +17,9 @@ Consult `../shared-references/schema.md` for the canonical DB schemas,
 property names/types, the `config.json` key set, adopt/patch rules, and the
 discovery config-block format. Consult `../shared-references/notion-conventions.md`
 for MCP quirks (wiki creation, status defaults, no-trash, single-source
-queries, dual-path fallback, rate limits, async writes, connector identity).
+queries, dual-path fallback, rate limits, async writes, connector identity),
+and `../shared-references/query-plan-gating.md` for the plan-gate error
+signature and per-tier gate map (used by the query-gating test, §8).
 Use the config keys and property names exactly as `schema.md` defines them —
 do not paraphrase or rename.
 
@@ -161,11 +163,15 @@ against a scratch data source (or the Inbox data source if no scratch DB is
 available) — never a cross-data-source query, per
 `notion-conventions.md`.
 
-- **Succeeds:** record the query path as `structured`.
-- **Returns an upgrade/plan-gating prompt:** fall back to scoped
-  `notion-search` + `notion-fetch`, record the query path as `fallback`, and
-  surface the Business-upgrade-vs-permanent-fallback decision to the user
-  (don't silently pick one).
+- **Succeeds:** record the query path as `structured` (the workspace is on
+  Business + Notion AI or higher — a single-source query is ungated there).
+- **Throws the plan-gate error** (the `400` signature in
+  `query-plan-gating.md` — a single-source query throwing it means a
+  Plus/Free tier): fall back to scoped `notion-search` + `notion-fetch`,
+  record the query path as `fallback`, and surface the
+  upgrade-vs-permanent-fallback decision to the user (don't silently pick
+  one). A generic 400 from a malformed probe filter is a bug in the test, not
+  a plan gate — fix the probe rather than recording `fallback`.
 
 Store the observed path in the run report — it's advisory for other
 query-dependent skills, not written into `config.json`'s schema.

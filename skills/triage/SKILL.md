@@ -18,7 +18,9 @@ Archive schemas (property names/types), the Wiki rules, and the
 for shared-vs-personal Task routing and assignee resolution. Consult
 `../shared-references/notion-conventions.md` for MCP quirks (single-source
 queries, the wiki parent-URL quirk, no page-trash tool, rate limits, async
-writes). Use the config keys and property names exactly as `schema.md`
+writes), and `../shared-references/query-plan-gating.md` for the plan-gate
+error signature and fallback decision tree. Use the config keys and property
+names exactly as `schema.md`
 defines them — do not paraphrase or rename.
 
 ## Behavior
@@ -50,9 +52,10 @@ for a normal triage sweep. Never issue a cross-data-source query — the
 Inbox is the only data source read here (Tasks/Wiki/Journal/Archive are
 write-only targets in this skill, per `notion-conventions.md`).
 
-**Dual-path fallback:** if the query returns an upgrade/plan-gating prompt
-instead of results, fall back to scoped `notion-search` + `notion-fetch` of
-the Inbox data source, and note the degradation in the output.
+**Dual-path fallback:** if the query **throws the plan-gate error** (the
+`400` signature in `query-plan-gating.md`, not a generic 400 from a bad
+filter), fall back to scoped `notion-search` + `notion-fetch` of the Inbox
+data source, and note the degradation in the output.
 
 If the working set is empty, say so and stop — nothing to triage.
 
