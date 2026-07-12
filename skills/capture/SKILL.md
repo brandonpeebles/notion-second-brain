@@ -51,6 +51,18 @@ shared-space write) is listed under that DB's `unconfirmed_roles`, refuse the
 write to that DB, and report that `setup` must confirm the mapping first —
 never operate on an unconfirmed role.
 
+**Unresolved personal-DB guard:** if `tasks_personal` is the
+`{"pending_selection": true, "candidates": [...]}` shape (no
+`data_source_url` — per `task-db-mapping.md`) rather than the normal mapping
+shape, the personal task DB is unresolved for this run. Refuse the
+straight-to-Tasks shortcut write when it would target `tasks_personal` (the
+default Inbox path is unaffected — it writes to `inbox.data_source_url`, not
+`tasks_personal`), and report that `setup` must resolve the pending
+personal-DB pick before a personal Task write can happen — distinct from the
+unconfirmed-mapping case above, which is a resolved DB with an ambiguous
+role. This never applies to `shared_spaces[].tasks`, which has no
+`pending_selection` variant.
+
 ### 2. Choose the target: Inbox (default) or Tasks (shortcut)
 
 **Default target is the Inbox.** Unless the straight-to-Tasks shortcut below

@@ -67,6 +67,17 @@ must confirm that DB's mapping — this is a per-DB skip, not a hard stop for
 the whole brief; DBs with confirmed mappings still produce their part of the
 brief.
 
+**Unresolved personal-DB guard:** if `tasks_personal` is the
+`{"pending_selection": true, "candidates": [...]}` shape (no
+`data_source_url` — per `task-db-mapping.md`) rather than the normal mapping
+shape, skip the personal task DB entirely for this run — it can't be queried
+without a resolved data source — and report it as **unresolved — needs
+setup to resolve the pending personal task DB pick**, the same per-DB-skip
+pattern as the unconfirmed-mapping case above, one level up (an unresolved DB
+rather than a resolved DB with an ambiguous role). Shared spaces are
+unaffected — every shared space still produces its part of the brief, and
+`shared_spaces[].tasks` has no `pending_selection` variant.
+
 ### 2. Query tasks — one data source at a time, merge in the skill layer
 
 For `tasks_personal.data_source_url` and, separately, for each entry in
@@ -196,8 +207,8 @@ skipped.
   succeed): report the brief with whatever succeeded, and clearly flag
   which source failed and why — don't silently drop it or fail the whole
   brief for one bad data source.
-- **Unconfirmed mapping** (a task DB's `status`, `due`, or `scheduled` role
-  is listed under `unconfirmed_roles`): this is the same "partial failure,
+- **Unconfirmed mapping** (a task DB's `status`, `due`, `scheduled`, or
+  `assignee` role is listed under `unconfirmed_roles`): this is the same "partial failure,
   report which source failed" pattern above, scoped to one DB and/or one
   bucket rather than the whole brief — skip only the affected DB/bucket (per
   the §1 guard), report that `setup` must confirm the mapping, and still

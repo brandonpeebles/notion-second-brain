@@ -58,6 +58,17 @@ isn't set up yet, point the user at the `setup` skill, and **stop**. Never
 guess at IDs, never invent a target, never assume a filesystem exists beyond
 this one optional config-file check.
 
+**Unresolved personal-DB guard:** if `tasks_personal` is the
+`{"pending_selection": true, "candidates": [...]}` shape (no
+`data_source_url` — per `task-db-mapping.md`) rather than the normal mapping
+shape, the personal task DB is unresolved for this run. Any row that would
+route to a personal Task promotion (§3) is proposed as **blocked** instead —
+"Task promotion blocked — the personal task DB has a pending `setup` pick to
+resolve first" — the same blocked-proposal shape §3's unconfirmed-mapping
+guard uses, one level up (an unresolved DB rather than a resolved DB with an
+ambiguous role). This never applies to `shared_spaces[].tasks`, which has no
+`pending_selection` variant.
+
 ### 2. Read the Inbox — single-source query
 
 Issue one **single-source** `notion-query-data-sources` call against
@@ -92,9 +103,14 @@ For every row in the working set, propose exactly one of:
   row needs is listed under that DB's `unconfirmed_roles`, do **not** propose
   a normal Task write for this row — propose it as **blocked**: "Task
   promotion blocked — `<task DB name>` mapping needs `setup` to confirm
-  `<role>`." This surfaces in the batch-confirm list (§4) instead of a
+  `<role>`," using that shared space's `name` from config for
+  `<task DB name>`; for the personal task DB, which has no `name` field in
+  config, use the stable label "your personal task DB" instead of a
+  placeholder. This surfaces in the batch-confirm list (§4) instead of a
   writable Task line, and §5 skips it rather than writing to an unconfirmed
-  role.
+  role. (A row whose target is the personal task DB and that DB is
+  `pending_selection` rather than unconfirmed is blocked by the §1 guard
+  above instead, before this check runs.)
 - **Wiki** — durable reference/knowledge (how-tos, standing information,
   things worth finding again) rather than a dated note.
 - **Journal** — a dated note/reflection tied to when it was captured, not

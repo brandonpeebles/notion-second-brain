@@ -1,19 +1,24 @@
 # Notion Second Brain — Canonical Schema
 
-Emoji and page/DB display names below are the **convention**; the real names and
-IDs are recorded in `config.json` by `setup`. Skills address databases by the
-`data_source_url` in config, never by display name (except during discovery).
+Page/DB titles are **plain names** (no emoji in the title); the emoji shown below
+is each object's **native Notion icon**, set separately (see Icons in
+`notion-conventions.md`). Real names and IDs are recorded in `config.json` by
+`setup`. Skills address databases by the `data_source_url` in config, never by
+display name (except during discovery).
 
 ## Structure (per person, under a private root)
 
+Icons shown are native icons; titles carry no emoji.
+
 ```
-🧠 Second Brain              ← root; named exactly "Second Brain" (emoji prefix ok)
+🧠 Second Brain              ← root; title exactly "Second Brain" (leading emoji tolerated on adopt)
 ├── ⚡ Inbox      [database]
 ├── ✅ Tasks      [database]
 ├── 📚 Wiki       [wiki]      ← created via "Turn into wiki" (UI only)
 ├── 📓 Journal    [database]
 ├── 🗑 Archive    [database]  ← discard target (no page-trash tool exists)
-└── 🏠 Home       [page]      ← dashboard views + fenced config block
+├── 🏠 Home       [page]      ← human dashboard (quick links only)
+└── 🤖 AGENTS     [page]      ← AGENTS.md-style control file: config block + Notion AI instructions
 ```
 
 Shared areas (zero or more, registered in setup) each contain a task database
@@ -120,6 +125,7 @@ patching the DB to match a canonical shape:
   "notion_user_id": "…",
   "second_brain_root": "page_id",
   "home_page": "page_id",
+  "agents_page": "page_id",
   "wiki": { "database_id": "…", "data_source_url": "collection://…" },
   "inbox": { "data_source_url": "…" },
   "tasks_personal": {
@@ -150,8 +156,16 @@ patching the DB to match a canonical shape:
 }
 ```
 
-`home_page` and `journal` extend the original design's example (needed by the
-discovery fallback and by `today`, respectively). Each task DB object
+If `setup` ran non-interactively and found 2+ ambiguous personal task-DB
+candidates, `tasks_personal` instead takes the unresolved-pick shape
+`{"pending_selection": true, "candidates": [...]}` (no `data_source_url`) —
+see `task-db-mapping.md`.
+
+`home_page` is the human dashboard (quick links). `agents_page` is the
+AGENTS.md-style control file that carries the fenced config block and doubles as
+the workspace's Notion AI instructions page — it is the discovery anchor (see
+below). `journal` extends the original design's example (needed by `today`).
+Each task DB object
 (`tasks_personal` and every `shared_spaces[].tasks`) also carries `properties`
 (role → real property name, roles omitted when absent) and `status_values`
 (role → real status value), plus the `confirmed` marker — see
@@ -161,8 +175,9 @@ discovery fallback and by `today`, respectively). Each task DB object
 
 When no `config.json` is found, skills `notion-search` for the root page named
 exactly `Second Brain` (emoji prefix allowed), owned by / private to the current
-user, containing a `Home` child page. `Home`'s body includes a fenced ```json
-block with the **same keys as `config.json` above**, including each task DB's
-`properties`/`status_values`/`confirmed` mapping. One `notion-fetch` of Home
+user, containing an `AGENTS` child page (title `AGENTS`, a leading emoji
+tolerated). `AGENTS`'s body includes a fenced ```json block with the **same keys
+as `config.json` above**, including each task DB's
+`properties`/`status_values`/`confirmed` mapping. One `notion-fetch` of AGENTS
 yields every ID. On ambiguity or no match: **fail loudly** with setup
 instructions — never guess.

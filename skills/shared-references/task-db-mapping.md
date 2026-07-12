@@ -85,6 +85,17 @@ are still ambiguous.
 role the operation needs, refuse that operation and report that setup must
 confirm the mapping — never operate on an unconfirmed role.
 
+## Unresolved personal-DB pick (non-interactive ambiguous candidates)
+
+When `setup` runs non-interactively and finds 2+ ambiguous personal task-DB
+candidates, it can't write a normal mapping at all — `tasks_personal` is
+written instead as `{"pending_selection": true, "candidates": [...]}`, with
+no `data_source_url`. Skills must check for this shape before reading
+`tasks_personal.data_source_url`, and treat the personal task DB as
+unresolved for the run when found (see each skill's own guard). This only
+applies to `tasks_personal` — `shared_spaces[].tasks` has no
+`pending_selection` variant.
+
 ## Setup derivation heuristics
 
 Used by `setup` (and referenced, not duplicated, by its SKILL.md) when

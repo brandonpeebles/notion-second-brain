@@ -62,7 +62,19 @@ out a structured filter: a DB whose mapping simply has no candidate for that
 role at all (§3 — "this DB doesn't track that"), and a DB whose structured
 query throws the plan-gate error (§4 — degrade to semantic search for that DB
 and note the plan-gate reason). Same "exclude + note" shape, three different
-causes — don't conflate the wording.
+causes — don't conflate the wording. Since `status` underlies every task
+query (it's needed to exclude completed tasks), an unconfirmed `status` role
+means the whole DB is excluded from the question, not just one filter.
+
+**Unresolved personal-DB guard:** if `tasks_personal` is the
+`{"pending_selection": true, "candidates": [...]}` shape (no
+`data_source_url` — per `task-db-mapping.md`) rather than the normal mapping
+shape, exclude the personal task DB from any structured or semantic query
+this question needs it for, and note in the answer that `setup` must resolve
+the pending personal task DB pick first — one level up from the
+unconfirmed-role case above (an unresolved DB, not a resolved DB with an
+ambiguous role). `shared_spaces[].tasks` has no `pending_selection` variant
+and is unaffected.
 
 ### 2. Pick the path per question
 
