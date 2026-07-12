@@ -311,7 +311,11 @@ names from `schema.md` — do not add, rename, or drop keys. `tasks_personal`
 and every `shared_spaces[].tasks` now also carry `properties` +
 `status_values` (plus `confirmed`/`unconfirmed_roles`) alongside
 `data_source_url`, per §3b/§7 and the exact shape in
-`schema.md`/`task-db-mapping.md`.
+`schema.md`/`task-db-mapping.md` — except when §3b left `tasks_personal`
+unresolved (2+ ambiguous candidates, non-interactive), in which case write
+`tasks_personal` as `{"pending_selection": true, "candidates": [...]}` with
+no `data_source_url`, mirroring how `unconfirmed_roles` marks a mapping
+incomplete.
 
 **Derive and persist `preferences.timezone`.** After `notion-get-users`
 (§1), if the loaded/adopted config has no `preferences.timezone` set:
