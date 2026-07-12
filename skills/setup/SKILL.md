@@ -51,6 +51,192 @@ success or proceed as if the workspace is reachable.
 On success, record the current user's id and display name — these become
 `notion_user_id` and `user` in `config.json` (§9).
 
+### 0. Establish the local repo (bootstrap)
+
+**Runs after §1** (it needs the Notion display name) and **before §2**. On a
+fresh machine, `setup` first gives the workspace a durable home: a dedicated
+**private GitHub repo** that becomes the launch folder. `config.json` lives
+**committed** inside that repo — safe because the repo is private — so remote
+sessions (Cowork, Claude Code on the web) can read the live config from the
+clone. A commit-frequently policy plus an auto-commit Stop hook keep the remote
+copy fresh.
+
+**0.0 Detect state.** If the current working directory already has a
+`config.json`, or a `.claude/settings.json` that enables this plugin, you are
+already inside an established second-brain repo → **skip Step 0 entirely** and
+continue at §2 (adopt path). Otherwise it is a fresh bootstrap — continue.
+
+**0.1 Choose location + name.**
+- **firstname:** first token of the Notion display name recorded in §1 →
+  fallback the first token of `git config user.name` → fallback ask the user.
+- **location default:** `~/src/<firstname>-notion-second-brain` if `~/src`
+  exists, else `~/Documents/<firstname>-notion-second-brain`. The repo **name**
+  is the folder's basename (`<firstname>-notion-second-brain`).
+- Echo both the folder path and the repo name back, and let the user override
+  either. If the target folder already exists and is **non-empty**, do **not**
+  clobber it — ask the user for a different path.
+
+**0.2 Create + init.**
+```bash
+mkdir -p "<location>"
+git -C "<location>" init -b main
+```
+
+**0.3 Inject the scaffold files.** Write these five files into the new repo with
+the Write tool (contents are the templates in "Step 0 templates" below):
+`.gitignore`, `.claude/settings.json`, `.claude/hooks/autocommit.sh` (then
+`chmod +x "<location>/.claude/hooks/autocommit.sh"`), a personal `README.md`,
+and `CLAUDE.md`. For `CLAUDE.md`, produce a short baseline first (a one- or
+two-paragraph description of the repo), then append the "CLAUDE.md appended
+block" template verbatim.
+
+**0.4 GitHub account + remote.**
+- `gh auth status` succeeds → create the private repo and push in one step:
+  ```bash
+  gh repo create "<name>" --private --source "<location>" --remote origin --push
+  ```
+- `gh` is installed but not authenticated → walk the user through
+  `gh auth login`, then run the `gh repo create …` command above.
+- No `gh` / no GitHub account → walk the user through creating a GitHub account
+  and a **private** repo named `<name>` on github.com (no README/gitignore
+  from GitHub — the repo already has them), then:
+  ```bash
+  git -C "<location>" remote add origin <the new repo's git URL>
+  git -C "<location>" push -u origin main
+  ```
+
+**0.5 Install the plugin into the repo.**
+```bash
+claude plugin install notion-second-brain@notion-second-brain-marketplace --scope project
+```
+The marketplace is already declared in the committed `.claude/settings.json`
+(0.3), so this is non-interactive. **State the honesty caveat to the user:** the
+committed plugin config auto-loads in the local CLI and (likely) in Cowork, but
+**not** in Claude Code on the web — there they must re-run
+`claude plugin install notion-second-brain@notion-second-brain-marketplace` once
+per session. Record this in the run report.
+
+**0.6 First commit + push.**
+```bash
+git -C "<location>" add -A
+git -C "<location>" commit -m "chore: bootstrap second brain repo"
+git -C "<location>" push -u origin main
+```
+(If 0.4 already pushed via `gh repo create --push`, this commit just adds any
+files written after that push.) After this first push, subsequent syncs are
+automatic via the Stop hook (0.3) — including `config.json` once §9 writes it.
+
+**0.7 Continue.** Proceed to §2 and run the existing Notion steps as today, with
+one difference for this bootstrap run: write `config.json` (§9) into the new
+repo **by its absolute path** (`<location>/config.json`), not the process cwd.
+When the run finishes, tell the user their second brain now lives in
+`<location>`, and future runs are `cd <location> && claude`.
+
+#### Step 0 templates
+
+Reproduce each of these verbatim into the new repo in 0.3.
+
+`.gitignore`:
+```
+# OS / editor
+.DS_Store
+*.swp
+
+# Claude Code local-only
+.claude/settings.local.json
+.superpowers/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.env
+
+# Node
+node_modules/
+npm-debug.log*
+dist/
+
+# config.json is intentionally committed in this private repo — do not ignore it.
+```
+
+`.claude/settings.json`:
+```json
+{
+  "extraKnownMarketplaces": {
+    "notion-second-brain-marketplace": {
+      "source": { "source": "github", "repo": "brandonpeebles/notion-second-brain" }
+    }
+  },
+  "enabledPlugins": { "notion-second-brain@notion-second-brain-marketplace": true },
+  "hooks": {
+    "Stop": [{ "hooks": [{ "type": "command",
+      "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/autocommit.sh\"" }] }]
+  }
+}
+```
+
+`.claude/hooks/autocommit.sh` (make it executable — `chmod +x`):
+```bash
+#!/usr/bin/env bash
+# Auto-commit Stop hook for the personal second-brain repo.
+# Idempotent and non-blocking: no-op on a clean tree, commit any changes,
+# push only when an origin remote exists, and always exit 0 so it never
+# blocks the session. Runs as the Stop hook's own shell (not the Bash tool),
+# so it does not collide with any git-guardrails PreToolUse hooks.
+set -u
+
+cd "${CLAUDE_PROJECT_DIR:-.}" || exit 0
+git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
+
+if [ -z "$(git status --porcelain)" ]; then
+  exit 0
+fi
+
+git add -A
+git commit -m "chore: auto-sync second brain" >/dev/null 2>&1 || exit 0
+
+if git remote get-url origin >/dev/null 2>&1; then
+  git push >/dev/null 2>&1 || true
+fi
+
+exit 0
+```
+
+`CLAUDE.md` appended block (append after the baseline you generate):
+```markdown
+
+## Second brain repo
+
+This is a **personal Notion second-brain** repo — it holds the local state and
+`config.json` for the notion-second-brain plugin, and it is **private**.
+
+- **Commit frequently and push after any meaningful change.** An auto-commit
+  Stop hook (`.claude/hooks/autocommit.sh`) does this automatically at the end
+  of each session; committing as you go is still encouraged.
+- **`config.json` is intentionally committed here.** It carries your Notion
+  workspace/page IDs. That is safe because this repo is private, and it lets
+  remote sessions (Cowork, Claude Code on the web) read the live config from the
+  clone. Never copy it into the public plugin repo.
+```
+
+Personal `README.md`:
+```markdown
+# My Notion Second Brain
+
+This is my personal second-brain repo. It holds the local state and
+`config.json` for the
+[notion-second-brain](https://github.com/brandonpeebles/notion-second-brain)
+Claude Code plugin.
+
+Launch it with Claude Code:
+
+    cd <this repo> && claude
+
+The repo is private; `config.json` (my Notion workspace/page IDs) is committed
+here on purpose so remote sessions can read it.
+```
+
 ### 2. Locate or create the root
 
 Look for `config.json` in the launch folder first. If it exists and is
@@ -449,7 +635,13 @@ non-interactively.
 ## Smoke test
 
 Smoke test (run against a live Notion workspace):
-1. From an empty launch folder (no config.json), run setup.
+1. From an empty working directory (no config.json, plugin not yet enabled
+   here), run setup. Expect Step 0 to bootstrap: create a private GitHub repo
+   under `~/src/<firstname>-notion-second-brain` (or `~/Documents/…`), inject
+   `.gitignore` (not ignoring config.json), `.claude/settings.json` (marketplace
+   + enabledPlugins + a Stop autocommit hook), `.claude/hooks/autocommit.sh`
+   (executable), `CLAUDE.md`, and a personal `README.md`, then push a first
+   commit. Re-running inside that repo skips Step 0 (0.0 detection).
 2. Expect setup to: ping the connector (notion-get-users) OK; find or create the
    "Second Brain" root; create/adopt Inbox, Journal, Archive with the
    schema.md schemas — each with a plain title and a native icon (no emoji in
@@ -474,6 +666,10 @@ title); the AGENTS page contains the config block and the Home page does not;
 re-run with no local `config.json` reads the mapping from the AGENTS block and
 skips re-disambiguation; a non-interactive run records `unconfirmed_roles` for
 any ambiguous role and reports it as a pending pick instead of guessing.
+On a bootstrap run, the new repo exists with an origin remote, contains the
+five injected files, and its config.json is committed (not gitignored); a
+second run started with `cd <repo> && claude` detects config.json and skips
+Step 0.
 
 ## Errors
 
