@@ -241,7 +241,10 @@ here on purpose so remote sessions can read it.
 
 Look for `config.json` in the launch folder first. If it exists and is
 valid, treat it as authoritative and skip straight to verifying its
-contents against live Notion in step 3 (adopt path).
+contents against live Notion in step 3 (adopt path). On a fresh bootstrap,
+Step 0 has just created the launch folder and there is no `config.json` yet
+(it is written in §9); on an adopt run you are already inside the established
+repo, where it exists.
 
 If no `config.json` is found, `notion-search` for a page named exactly
 `Second Brain` (a leading emoji in the title is tolerated) that is private to
@@ -579,7 +582,9 @@ query-dependent skills, not written into `config.json`'s schema.
 
 ### 9. Write config.json
 
-Write `config.json` to the launch folder with every key defined in
+Write `config.json` — on a bootstrap run to the **Step 0 repo's absolute path**
+(`<location>/config.json`), on an adopt run (Step 0 skipped) to the
+launch-folder cwd as before — with every key defined in
 `schema.md`: `user`, `notion_user_id`, `second_brain_root`, `home_page`,
 `agents_page`, `wiki` (`database_id`, `data_source_url`), `inbox`, `tasks_personal`,
 `journal`, `archive` (each with `data_source_url`, except `tasks_personal`
@@ -608,9 +613,11 @@ and report it as a pending manual step (§10) rather than guessing one.
 Mirror the identical JSON into the AGENTS page's fenced config block (§6, via
 `insert_content`).
 
-`config.json` is gitignored — never commit it, and never write personal
-data (names, IDs, workspace names) anywhere else in this skill's own output
-files.
+`config.json` **is committed** in the user's *private* second-brain repo —
+that is how remote sessions read it, and the auto-commit Stop hook (Step 0.3)
+pushes it automatically. It is still **never** committed to the public
+**plugin** repo, and this skill still never writes personal data (names, IDs,
+workspace names) into the plugin's own output files.
 
 ### 10. Idempotency + Routine mode
 

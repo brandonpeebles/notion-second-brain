@@ -120,7 +120,7 @@ patching the DB to match a canonical shape:
   DB — per `task-db-mapping.md`'s fail-loudly rule — rather than guessing or
   mutating.
 
-## `config.json` (written by `setup`, gitignored, launch-folder)
+## `config.json` (written by `setup`, committed in the private second-brain repo)
 
 ```json
 {
