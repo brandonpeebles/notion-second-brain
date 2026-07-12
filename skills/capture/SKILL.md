@@ -117,14 +117,15 @@ shared space: resolve `<partner>` against that space's `members` list from
 config, then confirm/resolve the Notion user via `notion-get-users`, and set
 the property named by that DB's `properties.assignee` to that person. If
 `<partner>` doesn't match a member of that space, say so plainly rather than
-guessing an ID, and leave `Assignee` unset.
+guessing an ID, and leave the property named by `properties.assignee` unset.
 
 **Shared tasks always get an Assignee** (`two-person-rules.md`: a shared-space
 task with no assignee is incomplete — ask or infer, don't leave it blank). So
 when the row is routed to a shared space's Tasks DB but no partner is named:
 in interactive mode, ask who it's for before writing; in Routine mode (§5),
-mirror the ambiguous-date pattern — leave `Assignee` unset, still create the
-row, and flag the missing assignee in the report rather than guessing.
+mirror the ambiguous-date pattern — leave the property named by
+`properties.assignee` unset, still create the row, and flag the missing
+assignee in the report rather than guessing.
 
 Never write into a partner's private area — shared writes only ever target
 the named shared space's own Tasks database.
@@ -135,9 +136,10 @@ If invoked non-interactively (no way to prompt for confirmation): create the
 Inbox (or Tasks) row without prompting, using the best resolution available.
 Report the resolved date and any routing decisions in the response instead
 of asking to confirm. If a date is genuinely ambiguous and there's no one to
-ask, leave `Due` unset, still create the row, and flag the ambiguity in the
-report rather than guessing. Apply the same pattern to a missing shared-space
-`Assignee` (§4): leave it unset, still create the row, and flag it.
+ask, leave the property named by `properties.due` unset, still create the
+row, and flag the ambiguity in the report rather than guessing. Apply the
+same pattern to a missing shared-space assignee (§4): leave the property
+named by `properties.assignee` unset, still create the row, and flag it.
 
 ### 6. Errors
 
