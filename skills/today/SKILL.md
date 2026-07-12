@@ -58,10 +58,14 @@ and every shared space), check its `confirmed`/`unconfirmed_roles` marker.
 If `status` is unconfirmed, skip that DB entirely (it can't be safely
 filtered to "not done" at all). If `due` is unconfirmed, skip that DB for
 the overdue/due-today buckets. If `scheduled` is unconfirmed, skip that DB
-for the planned-today bucket only. In every case, report which DB was
-skipped, for which bucket, and that `setup` must confirm that DB's mapping —
-this is a per-DB skip, not a hard stop for the whole brief; DBs with
-confirmed mappings still produce their part of the brief.
+for the planned-today bucket only. If `assignee` is unconfirmed for a shared
+DB, skip the "mine only" `⟨assignee⟩ = notion_user_id` filter for that DB —
+never apply an unconfirmed mapping — and report it as **unconfirmed —
+needs setup to confirm**, distinct from the unmapped-assignee case in §2. In
+every case, report which DB was skipped, for which bucket, and that `setup`
+must confirm that DB's mapping — this is a per-DB skip, not a hard stop for
+the whole brief; DBs with confirmed mappings still produce their part of the
+brief.
 
 ### 2. Query tasks — one data source at a time, merge in the skill layer
 
@@ -78,12 +82,17 @@ Never assume any two DBs share property names.
 - **Personal:** filter `⟨due⟩ ≤ today AND status ∉ status_values.done[]`,
   using this DB's own `properties.due` and `properties.status`.
 - **Each shared space:** the same filter, plus, when `properties.assignee`
-  is mapped, `⟨assignee⟩ = notion_user_id` — a shared brief only ever
-  surfaces tasks assigned to the current user, never a partner's. If a
-  shared DB has **no** `assignee` mapping, it can't be narrowed to "mine
+  is mapped **and confirmed**, `⟨assignee⟩ = notion_user_id` — a shared brief
+  only ever surfaces tasks assigned to the current user, never a partner's.
+  If a shared DB has **no** `assignee` mapping, it can't be narrowed to "mine
   only" — do not silently include everyone's tasks or silently drop the DB;
   query it unfiltered by assignee and clearly label that source's section in
-  the brief as **unfilterable by assignee (shows all tasks in this DB)**.
+  the brief as **unfilterable by assignee (shows all tasks in this DB)** —
+  this DB doesn't track assignee. If a shared DB's `assignee` mapping is
+  present but listed in `unconfirmed_roles` (per the Unconfirmed-mapping
+  guard in step 1), do not apply the filter using that unconfirmed
+  mapping — query it unfiltered by assignee and label that source's section
+  as **unconfirmed — needs setup to confirm**, not unfilterable.
 - **A DB with no `due` mapping at all** is omitted from the overdue/due-today
   buckets entirely — note this omission in the brief (a reportable omission,
   not an error), the same way §3 notes an omitted Calendar section.
