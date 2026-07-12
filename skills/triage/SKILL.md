@@ -14,14 +14,24 @@ in v0.2).
 
 Consult `../shared-references/schema.md` for the Inbox, Task, Journal, and
 Archive schemas (property names/types), the Wiki rules, and the
-`config.json` key set. Consult `../shared-references/two-person-rules.md`
+`config.json` key set. Consult `../shared-references/task-db-mapping.md` for
+the task-DB mapping contract: the Task-promotion write (§5) is the **only**
+place this skill touches a task DB, and it must resolve property names and
+status values from the target task DB's `properties`/`status_values` —
+look up each role, use the returned real name, and skip any role that isn't
+mapped for that DB; never hard-code `Name`/`Status`/`Not started`/`Due`/
+`Source`/`Assignee`. Inbox reads (`Type`/`Triage`/`Source`/`Captured`/`Name`,
+§2/§3) are internal to the plugin — the Inbox has no mapping and those names
+stay canonical, unchanged by this. Consult
+`../shared-references/two-person-rules.md`
 for shared-vs-personal Task routing and assignee resolution. Consult
 `../shared-references/notion-conventions.md` for MCP quirks (single-source
 queries, the wiki parent-URL quirk, no page-trash tool, rate limits, async
 writes), and `../shared-references/query-plan-gating.md` for the plan-gate
-error signature and fallback decision tree. Use the config keys and property
-names exactly as `schema.md`
-defines them — do not paraphrase or rename.
+error signature and fallback decision tree. Use the config keys and the
+internal (Inbox/Wiki/Journal/Archive) property names exactly as `schema.md`
+defines them — do not paraphrase or rename; task-DB property names and
+status values come from the mapping instead, per above.
 
 ## Behavior
 
@@ -32,7 +42,11 @@ folder first. If present and valid, read `inbox.data_source_url`,
 `tasks_personal.data_source_url`, `shared_spaces[].tasks` (and
 `shared_spaces[].members`), `journal.data_source_url`,
 `archive.data_source_url`, `wiki.data_source_url`, `wiki.database_id` (the
-wiki page URL), `home_page`, and `preferences.timezone` from it.
+wiki page URL), `home_page`, and `preferences.timezone` from it. For
+`tasks_personal` and every `shared_spaces[].tasks`, also read that task DB's
+`properties`, `status_values`, and `confirmed`/`unconfirmed_roles` marker —
+per `task-db-mapping.md` — since the Task-promotion write (§5) resolves
+through this mapping and §3 needs `unconfirmed_roles` to gate proposals.
 
 If no `config.json` is found, fall back to discovery: `notion-search` for
 the root page named exactly `Second Brain` (emoji prefix allowed), then
@@ -69,6 +83,18 @@ For every row in the working set, propose exactly one of:
   `Source`; otherwise personal. If routed to a shared space, resolve an
   `Assignee` from that space's `members`; if none is named, flag it in the
   proposal rather than silently omitting it (see §5, §6).
+
+  **Unconfirmed-mapping guard.** Before finalizing a Task proposal, check the
+  target task DB's `unconfirmed_roles` (loaded in §1). `status` is always
+  needed for a Task write; `due`, `source`, and `assignee` are only needed if
+  this row actually has data for that role (a parseable date, a `Source` to
+  carry, or a shared-space routing that needs an `Assignee`). If any role the
+  row needs is listed under that DB's `unconfirmed_roles`, do **not** propose
+  a normal Task write for this row — propose it as **blocked**: "Task
+  promotion blocked — `<task DB name>` mapping needs `setup` to confirm
+  `<role>`." This surfaces in the batch-confirm list (§4) instead of a
+  writable Task line, and §5 skips it rather than writing to an unconfirmed
+  role.
 - **Wiki** — durable reference/knowledge (how-tos, standing information,
   things worth finding again) rather than a dated note.
 - **Journal** — a dated note/reflection tied to when it was captured, not
@@ -88,10 +114,12 @@ signals, but the proposal is triage's own judgment, not a mechanical copy of
 
 Present the **full** proposed mapping as a single list — one line per row:
 its current `Name`, the proposed destination, and any destination-specific
-detail (shared vs. personal + assignee for Task; discard for Archive; etc.)
-— and get **one** confirmation before writing anything. Do not confirm
-row-by-row and do not write before the confirmation covers the whole batch:
-a single confirmation authorizes the entire batch of writes.
+detail (shared vs. personal + assignee for Task; discard for Archive; a
+blocked Task promotion and which mapping role needs confirming, per §3's
+unconfirmed-mapping guard; etc.) — and get **one** confirmation before
+writing anything. Do not confirm row-by-row and do not write before the
+confirmation covers the whole batch: a single confirmation authorizes the
+entire batch of writes (blocked rows are reported, not written — see §5).
 
 If the user adjusts individual rows in their reply, fold the adjustments in
 and treat that reply as the confirmation for the (now-adjusted) batch — do
@@ -121,13 +149,25 @@ Journal-promoted note is unambiguously `Promoted` and every `Kept` row is a
 reviewed-and-left-in-Inbox row — the two states the weekly review, §7, then
 counts and ages.)
 
-- **Task** → `notion-create-pages` in the target Tasks data source
-  (`tasks_personal.data_source_url` or the named
-  `shared_spaces[].tasks.data_source_url`), per `schema.md`: `Name` from the
-  Inbox row; `Status = Not started`; `Due` if a date is present/parseable in
-  the row text (against `preferences.timezone`), else unset; `Source`
-  carried from the Inbox row's `Source`; `Assignee` set when routed to a
-  shared space (§3/§6). Then `notion-update-page` the Inbox row:
+- **Task** — blocked rows (§3's unconfirmed-mapping guard) are skipped here:
+  report them as pending a `setup` mapping confirmation (§8), write nothing,
+  and leave the Inbox row's `Triage` untouched. For every other Task row,
+  resolve the target task DB's mapping (`properties`/`status_values`, loaded
+  in §1, for `tasks_personal.data_source_url` or the named
+  `shared_spaces[].tasks.data_source_url`) per `task-db-mapping.md`, then
+  `notion-create-pages`: title from the Inbox row's `Name`, written into the
+  property named by `properties.title`; status set to
+  `status_values.open_default`, written into the property named by
+  `properties.status`; a due date, if present/parseable in the row text
+  (against `preferences.timezone`), written into the property named by
+  `properties.due` — skip this write entirely if `due` isn't mapped for that
+  DB; `Source` carried from the Inbox row's `Source`, written into the
+  property named by `properties.source` — skip if `source` isn't mapped;
+  `Assignee` set when routed to a shared space (§3/§6), written into the
+  property named by `properties.assignee`. Never write to a canonical name
+  (`Name`/`Status`/`Due`/`Source`/`Assignee`) directly — always resolve
+  through the mapping, and never write to a role listed under that DB's
+  `unconfirmed_roles`. Then `notion-update-page` the Inbox row:
   `Triage = Promoted`.
 - **Wiki** → `notion-create-pages` parented to the wiki **page** URL
   (`wiki.database_id` from config) — never `wiki.data_source_url`, per the
@@ -199,6 +239,9 @@ the normal batch-confirm (§4) before anything is written.
 - **Partial batch failure:** report which rows succeeded and which failed
   (§5) — don't silently drop a failure or claim the whole batch succeeded
   when part of it didn't.
+- **Unconfirmed task-DB mapping:** report which rows were blocked from Task
+  promotion by §3's unconfirmed-mapping guard, and which role(s) need
+  `setup` to confirm — don't silently drop them from the report.
 
 ## Smoke test
 
