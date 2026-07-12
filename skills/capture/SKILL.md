@@ -17,7 +17,9 @@ status values are resolved. Consult `../shared-references/two-person-rules.md`
 for shared-vs-personal routing and partner resolution. Consult
 `../shared-references/notion-conventions.md` for MCP quirks (rate limits,
 connector identity). Inbox property names (`Name`/`Type`/`Source`/`Triage`/
-`Captured`) are canonical and fixed — use them exactly as `schema.md` defines.
+`Captured`) are canonical and fixed — use them exactly as `schema.md` defines;
+the `Triage` **value** written is resolved from `inbox.triage_values` per
+`schema.md` (default `New`), not hard-coded.
 Task DB property names and status values are **not** canonical: resolve them
 per role (title/status/due/scheduled/assignee/priority/project/source)
 through the target task DB's `properties`/`status_values` mapping, per
@@ -29,9 +31,9 @@ hard-code a canonical name.
 ### 1. Load config or discover
 
 Look for `config.json` in the launch folder. If present and valid, read
-`inbox.data_source_url`, `tasks_personal.data_source_url`,
-`shared_spaces[].tasks` (and `shared_spaces[].members`), and
-`preferences.timezone` from it.
+`inbox.data_source_url`, `inbox.triage_values` (optional — see `schema.md`),
+`tasks_personal.data_source_url`, `shared_spaces[].tasks` (and
+`shared_spaces[].members`), and `preferences.timezone` from it.
 
 If no `config.json` is found, fall back to discovery: `notion-search` for the
 root page named exactly `Second Brain` (emoji prefix allowed), then
@@ -74,7 +76,8 @@ applies, create a row in `inbox.data_source_url` with `notion-create-pages`:
   `schema.md`).
 - `Source` — a URL or short origin text if the input includes one; otherwise
   leave blank.
-- `Triage` — set explicitly to `New`.
+- `Triage` — set explicitly to the `new` value resolved from
+  `inbox.triage_values` per `schema.md` (default `New`).
 - `Captured` — automatic (`created_time`); never set it manually.
 
 **Straight-to-Tasks shortcut:** when the input is unambiguously a task —
@@ -167,8 +170,9 @@ named by `properties.assignee` unset, still create the row, and flag it.
 Smoke test (run against a live Notion workspace):
 - `capture "call the plumber about the leak, due Friday"`
   → creates an Inbox row: `Name` set, `Type` = `Task` (guess), `Source`
-    blank/text, `Triage` = `New`, `Captured` auto; echoes the resolved date
-    ("Friday → 2026-07-17") back for confirmation before/at write.
+    blank/text, `Triage` = the resolved `new` value (default `New`), `Captured`
+    auto; echoes the resolved date ("Friday → 2026-07-17") back for
+    confirmation before/at write.
 - `capture "add 'buy anniversary gift' to the tasks for <a named shared
   space>, assign my partner"`
   → routes to that shared space's Tasks DB (since it's named); the property
