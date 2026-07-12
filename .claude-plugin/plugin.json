@@ -1,6 +1,6 @@
 {
   "name": "notion-second-brain",
-  "description": "Operate a two-person second brain on Notion: zero-decision capture, daily briefs, inbox triage, and cited queries over your wiki, tasks, and journal — all through the built-in Notion connector.",
+  "description": "Operate your second brain on Notion — personal, with optional shared spaces: zero-decision capture, daily briefs, inbox triage, and cited queries over your wiki, tasks, and journal — all through the built-in Notion connector.",
   "version": "0.1.0",
   "author": { "name": "brandonpeebles" },
   "repository": "https://github.com/brandonpeebles/notion-second-brain",

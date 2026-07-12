@@ -6,7 +6,7 @@
     {
       "name": "notion-second-brain",
       "source": "./",
-      "description": "Operate a two-person second brain on Notion via the built-in connector."
+      "description": "Create and maintain a self-organizing, optionally-shared second brain in Notion, based on Karpathy's LLM Wiki pattern."
     }
   ]
 }

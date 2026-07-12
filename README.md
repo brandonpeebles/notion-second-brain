@@ -1,7 +1,8 @@
 # Notion Second Brain
 
-A Claude Code plugin that runs a two-person second brain on Notion through the
-built-in Notion connector. Capture, daily brief, inbox triage, and cited query —
+A Claude Code plugin that runs your second brain on Notion through the
+built-in Notion connector — personal, with optional spaces you share with
+others. Capture, daily brief, inbox triage, and cited query —
 across Claude Code, Cowork, claude.ai chat/mobile, cloud sessions, and Routines.
 
 ## What it is
@@ -10,7 +11,7 @@ Five skills, all talking to your Notion workspace exclusively through the
 built-in Notion connector (no MCP config files, no hooks to wire up):
 
 - **setup** — discovers or scaffolds the workspace structure, writes
-  `config.json`, verifies the Notion connector, and registers shared spaces.
+  `config.json`, verifies the Notion connector, and registers any shared spaces.
   Idempotent and safe to re-run.
 - **capture** — zero-decision capture of a task, note, idea, or reference;
   routes to the Inbox, or straight to Tasks when unambiguous. Phone-first,
@@ -29,8 +30,9 @@ built-in Notion connector (no MCP config files, no hooks to wire up):
 
 - The **Notion connector** connected once at claude.ai (Settings →
   Connectors). All skills use it as their only transport.
-- A Notion workspace on a **paid plan** — two members exceed the free plan's
-  block cap.
+- A Notion workspace on a **paid plan** if you share it — a workspace with
+  two or more members hits the free plan's block cap. Solo use works on the
+  free plan.
 
 ## Install
 
