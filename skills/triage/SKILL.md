@@ -50,7 +50,7 @@ through this mapping and §3 needs `unconfirmed_roles` to gate proposals.
 
 If no `config.json` is found, fall back to discovery: `notion-search` for
 the root page named exactly `Second Brain` (emoji prefix allowed), then
-`notion-fetch` its `Home` child page and read the fenced ```json config
+`notion-fetch` its `AGENTS` child page and read the fenced ```json config
 block for the same keys, per the discovery convention in `schema.md`.
 
 If neither resolves: **fail loudly**. State plainly that the second brain

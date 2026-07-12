@@ -8,8 +8,12 @@ description: Use when setting up or repairing the Notion second brain — discov
 Foundational skill for the Notion second brain. Discovers or scaffolds the
 workspace structure, adopts what already exists, writes `config.json`,
 verifies the Notion connector, runs the query-gating test, and walks the user
-through up to two UI-only manual steps (wiki turn-into-wiki, and the Waiting
-status option — only when a personal task DB is newly scaffolded). Its successful run produces the live
+through up to three UI-only manual steps (wiki turn-into-wiki; the Waiting
+status option, only when a personal task DB is newly scaffolded; and optionally
+setting the AGENTS page as the workspace's Notion AI instructions). Every page
+and database it creates gets a plain title plus a native Notion icon — never an
+emoji embedded in the title (see Icons in `notion-conventions.md`). Its
+successful run produces the live
 workspace every other skill (`capture`, `today`, `triage`, `query`) operates
 on. Idempotent and additive: re-running never destroys anything, and can be
 used to add more shared spaces later.
@@ -54,18 +58,19 @@ valid, treat it as authoritative and skip straight to verifying its
 contents against live Notion in step 3 (adopt path).
 
 If no `config.json` is found, `notion-search` for a page named exactly
-`Second Brain` (an emoji prefix such as `🧠` is allowed) that is private to
+`Second Brain` (a leading emoji in the title is tolerated) that is private to
 the current user, per the discovery convention in `schema.md`. If a root is
-found this way, also `notion-fetch` its `🏠 Home` page for the fenced config
+found this way, also `notion-fetch` its `AGENTS` page for the fenced config
 block (§6) — it may be the only surviving mapping record (see below).
 
-- **Exactly one match:** adopt it as the root.
-- **No match:** offer to create `🧠 Second Brain` (`notion-create-pages`),
-  private to the current user, and use it as the root.
+- **Exactly one match:** adopt it as the root. Repair its icon/title if needed
+  (native icon 🧠, plain title `Second Brain`), per the Icons convention.
+- **No match:** offer to create `Second Brain` (`notion-create-pages`, plain
+  title + `icon: 🧠`), private to the current user, and use it as the root.
 - **Multiple matches:** stop and ask the user which one to use. Never guess.
 
 **Read the stored task-DB mapping on re-run.** Whenever a config source
-exists — the launch-folder `config.json`, or (absent that) the Home page's
+exists — the launch-folder `config.json`, or (absent that) the AGENTS page's
 config block — load each task DB's `properties`/`status_values`/`confirmed`
 from it before doing any discovery. A **confirmed** mapping is authoritative:
 re-verify the DB still has those properties (a cheap `notion-fetch` schema
@@ -73,7 +78,7 @@ check), but **do not re-disambiguate** anything about it. Only run discovery
 (§3b for the personal DB, §7 for shared spaces) for a task DB with **no**
 stored mapping, or one recorded with `unconfirmed_roles`. This matters most
 for cross-session Cowork use, where there's no durable `config.json` — the
-Home block is the only place the mapping survives between sessions, and
+AGENTS block is the only place the mapping survives between sessions, and
 reading it there is what prevents re-prompting the full disambiguation flow
 on every run.
 
@@ -85,13 +90,18 @@ plugin-owned and stay canonical — unlike task DBs (§3b, §7), they are safe t
 additively patch.
 
 - For each database, `notion-search`/`notion-fetch` under the root for a
-  child matching the display-name convention (`⚡ Inbox`, `📓 Journal`,
-  `🗑 Archive`).
-- **Missing:** create it with `notion-create-database` using the exact
-  properties and types from `schema.md`.
+  child matching the display-name convention (`Inbox`, `Journal`, `Archive` —
+  tolerating a legacy leading emoji in the title).
+- **Missing:** create it with `notion-create-database` using a **plain title**
+  (`Inbox`/`Journal`/`Archive`) and the exact properties and types from
+  `schema.md`. `notion-create-database` has no icon field, so immediately
+  **set the native icon** with a follow-up `notion-update-page` on the new
+  database's page id (`⚡`/`📓`/`🗑`; use `command: "update_properties"`,
+  `properties: {}`, `icon: "…"` — per the Icons convention).
 - **Existing:** verify every required property exists with the right type;
   **add** any missing properties with `notion-update-data-source` (DDL).
-  Never drop or retype an existing property.
+  Never drop or retype an existing property. Also **repair icon/title** if
+  needed (set the native icon, strip any leading emoji from the title).
 - **Type conflict** (a required property exists with the wrong type): do
   **not** mutate it. Report the conflict for that database and skip it —
   continue with the remaining databases.
@@ -112,8 +122,8 @@ Otherwise, discover from scratch:
 
 1. **Search for candidates.** `notion-search` the workspace for databases
    that look like a task DB (a title property plus a status- or
-   select-typed property; display name matching `✅ Tasks`/"Tasks"/"To-do"
-   is a strong signal but not required). Present the candidates found and
+   select-typed property; a display name like "Tasks"/"To-do" (with or without
+   a leading emoji) is a strong signal but not required). Present the candidates found and
    ask the user which one (if any) is their personal task DB. In
    non-interactive mode: **zero candidates found** → proceed to the scaffold
    branch below (step 3); **exactly one obvious candidate** → adopt it (step
@@ -141,8 +151,10 @@ Otherwise, discover from scratch:
    - If `title` or `status` cannot be identified at all (no candidate
      property), fail loudly for this DB and stop — per `task-db-mapping.md`'s
      fail-loudly rule.
-3. **If the user has no existing personal task DB**, scaffold `✅ Tasks`
-   using the scaffold-default shape from `schema.md` (`notion-create-database`)
+3. **If the user has no existing personal task DB**, scaffold `Tasks`
+   using the scaffold-default shape from `schema.md` (`notion-create-database`,
+   plain title `Tasks`; then set the native icon `✅` via a follow-up
+   `notion-update-page`, per the Icons convention)
    and give it an **identity mapping** — `properties` naming exactly the
    properties just created (`title:"Name"`, `status:"Status"`, `due:"Due"`,
    `assignee:"Assignee"`, `priority:"Priority"`, `project:"Project"`,
@@ -183,8 +195,8 @@ cannot be created via MCP — "Turn into wiki" is UI-only (see
 
 If no wiki is found, walk the user through it:
 
-1. Create a page named `📚 Wiki` under the root (you may create this page
-   via `notion-create-pages`, or ask the user to create it).
+1. Create a page titled `Wiki` (plain title + `icon: 📚`) under the root (you
+   may create this page via `notion-create-pages`, or ask the user to create it).
 2. Ask the user to open it in Notion and choose "Turn into wiki" from the
    page menu.
 3. Ask the user to paste the resulting page URL back.
@@ -229,21 +241,101 @@ during role inference (§3b/§7) — e.g. an In-progress-group value like
 value exists, leave `waiting` unmapped and let dependent behavior (e.g.
 "blocked on partner" in `two-person-rules.md`) degrade gracefully.
 
-### 6. Home page + config block
+### 6. AGENTS page + config block
 
-Under the root, `notion-search`/`notion-fetch` for `🏠 Home`. Create it with
-`notion-create-pages` if missing; adopt it if present. Record `home_page`
-for `config.json`.
+The `AGENTS` page is the machine-facing control file — an AGENTS.md-style page
+that carries the fenced config block (the discovery anchor) and doubles as the
+workspace's Notion AI instructions (§6a). It is **not** the human dashboard;
+that is a separate `Home` page (§6b).
 
-Optionally script dashboard views with `notion-create-view` — e.g. a Tasks
-board grouped by Status.
+Under the root, `notion-search`/`notion-fetch` for an `AGENTS` child page
+(title `AGENTS`, a leading emoji tolerated):
 
-Write the fenced ```json config block into Home's body using
-`insert_content` (concurrency-safe append/insert), never a whole-page
-replacement — this avoids clobbering concurrent human edits per
-`notion-conventions.md`. The block's keys and structure must mirror
-`config.json` exactly (§9). If a config block already exists in Home, update
-it in place rather than duplicating it.
+- **Found:** adopt it. Repair its icon/title if needed (`icon: 🤖`, plain
+  title `AGENTS`).
+- **Not found, but a legacy `Home` page carrying a config block exists**
+  (the pre-split layout): **migrate it in place** — rename that page's title
+  to `AGENTS`, set `icon: 🤖`, and restructure its body to the AGENTS.md-style
+  template below, preserving/updating the existing fenced config block. Do not
+  create a second page.
+- **Neither exists:** create a fresh `AGENTS` page (`notion-create-pages`,
+  plain title + `icon: 🤖`) with the template body below.
+
+Record `agents_page` for `config.json`.
+
+Write the fenced ```json config block into AGENTS's body using `insert_content`
+(concurrency-safe append/insert), never a whole-page replacement — this avoids
+clobbering concurrent human edits per `notion-conventions.md`. The block's keys
+and structure must mirror `config.json` exactly (§9). If a config block already
+exists, update it in place rather than duplicating it.
+
+The AGENTS body reads as instructions first, config last (so it works as a
+Notion AI instructions page), e.g.:
+
+```
+# AGENTS
+
+The AGENTS.md of this Notion second brain — instructions for how AI should work
+here, and the config block the plugin's skills read. Humans: use the Home page.
+
+## How to work in this workspace
+- File captures in Inbox; promote to Tasks/Journal/Wiki during triage.
+- Discard by moving rows to Archive (there is no page-trash).
+- Keep answers concise and cite the source page when answering from the brain.
+
+## Conventions (for the plugin's skills)
+- Skills address databases by data_source_url from the config block, never by name.
+- Queries are single-data-source only.
+
+## Config
+​```json
+{ …mirror of config.json (§9)… }
+​```
+```
+
+### 6a. Notion AI instructions (guided, UI-only — optional, opt-in)
+
+After the AGENTS page exists, offer to make it the workspace's **Notion AI
+Instructions** page so Notion AI follows it. This cannot be done via MCP — it
+is UI-only (see `notion-conventions.md`).
+
+If the user opts in, walk them through it: open the AGENTS page → `···` →
+`Use with AI` → `Use as AI Instruction`. Warn that only **one** instructions
+page is active at a time, so this replaces any current one. This is not
+verifiable via MCP — accept the user's confirmation. Skipping is fine; the step
+is additive and can be done on a later run.
+
+In non-interactive/Routine mode (see §10), do not prompt — report it as a
+pending manual step instead.
+
+### 6b. Home page (human dashboard)
+
+Under the root, `notion-search`/`notion-fetch` for a `Home` child page (title
+`Home`, a leading emoji tolerated). Note: if a legacy `Home` was just migrated
+to `AGENTS` in §6, none remains — create a fresh one.
+
+- **Found:** adopt it; repair icon/title if needed (`icon: 🏠`, plain title
+  `Home`). If it still holds a leftover config block, remove it — config lives
+  on AGENTS now.
+- **Not found:** create it (`notion-create-pages`, plain title + `icon: 🏠`).
+
+Keep it **simple and human-facing — quick links only**, no config block and no
+scripted views. Example body:
+
+```
+# Home
+
+Your second brain.
+
+- Inbox — where captures land
+- Tasks — what to do
+- Journal — daily notes
+- Wiki — reference
+- Archive — discarded items
+```
+
+Render the links as Notion page/DB mentions or child-page links. Record
+`home_page` for `config.json`.
 
 ### 7. Shared spaces (zero or more)
 
@@ -255,7 +347,7 @@ For each named shared space:
 
 1. Locate its task database (search under the space's root, or ask the user
    for it) — the display name and shape are whatever already exists there;
-   don't expect `✅ Tasks`'s scaffold shape.
+   don't expect the scaffolded `Tasks` shape.
 2. **Discover and map it — never mutate.** If step 2 already loaded a
    confirmed mapping for this space's task DB, re-verify its properties
    still exist and skip to step 3. Otherwise run the same role-inference and
@@ -303,7 +395,7 @@ query-dependent skills, not written into `config.json`'s schema.
 
 Write `config.json` to the launch folder with every key defined in
 `schema.md`: `user`, `notion_user_id`, `second_brain_root`, `home_page`,
-`wiki` (`database_id`, `data_source_url`), `inbox`, `tasks_personal`,
+`agents_page`, `wiki` (`database_id`, `data_source_url`), `inbox`, `tasks_personal`,
 `journal`, `archive` (each with `data_source_url`, except `tasks_personal`
 when unresolved — see below), `shared_spaces` (array,
 possibly empty), and `preferences` (`timezone`, `calendar_tool`). **Keep
@@ -327,7 +419,7 @@ clock, which is UTC in cloud/Routine/Cowork sessions (`task-db-mapping.md`).
 If there is no adopted config and no way to prompt, leave `timezone` unset
 and report it as a pending manual step (§10) rather than guessing one.
 
-Mirror the identical JSON into Home's fenced config block (§6, via
+Mirror the identical JSON into the AGENTS page's fenced config block (§6, via
 `insert_content`).
 
 `config.json` is gitignored — never commit it, and never write personal
@@ -344,13 +436,15 @@ for task DBs, reading the stored mapping (§2) rather than re-discovering or
 mutating anything (§3b, §7).
 
 If invoked non-interactively (Routine mode, no way to prompt for the wiki
-URL, the Waiting-option confirmation, or task-DB mapping disambiguation): do
-not block waiting for input. Instead, produce a report listing exactly what
-setup *would* create or still needs from the user (e.g. "wiki not yet turned
-into a wiki — visit Home for instructions", "Waiting status option still
-missing on Tasks", "task DB mapping has unconfirmed roles: due, priority —
-pending pick"), and complete the rest of the run (databases, Home,
-config.json, gating test) as far as it can go non-interactively.
+URL, the Waiting-option confirmation, the AGENTS→AI-instructions step, or
+task-DB mapping disambiguation): do not block waiting for input. Instead,
+produce a report listing exactly what setup *would* create or still needs from
+the user (e.g. "wiki not yet turned into a wiki — visit AGENTS for
+instructions", "Waiting status option still missing on Tasks", "AGENTS not yet
+set as the Notion AI instructions page", "task DB mapping has unconfirmed
+roles: due, priority — pending pick"), and complete the rest of the run
+(databases, AGENTS, Home, config.json, gating test) as far as it can go
+non-interactively.
 
 ## Smoke test
 
@@ -358,25 +452,28 @@ Smoke test (run against a live Notion workspace):
 1. From an empty launch folder (no config.json), run setup.
 2. Expect setup to: ping the connector (notion-get-users) OK; find or create the
    "Second Brain" root; create/adopt Inbox, Journal, Archive with the
-   schema.md schemas; discover-or-scaffold the personal task DB per §3b;
-   create/adopt Home with a fenced config block; write config.json with all
-   keys populated.
+   schema.md schemas — each with a plain title and a native icon (no emoji in
+   the title); discover-or-scaffold the personal task DB per §3b; create/adopt
+   the AGENTS page with a fenced config block and a separate simple Home page;
+   write config.json with all keys populated.
 3. Expect setup to run the gating test: a single-source filtered+sorted query
    against a scratch DB, and report path = "structured" or "fallback".
-4. Expect setup to surface the manual UI steps (create 📚 Wiki → "Turn into
+4. Expect setup to surface the manual UI steps (create `Wiki` → "Turn into
    wiki" → paste URL back; add "Waiting" status option — only if the personal
-   DB was scaffolded), then verify each after the user confirms.
+   DB was scaffolded; optionally set AGENTS as the Notion AI instructions
+   page), then verify each after the user confirms.
 5. Re-run setup on the now-populated folder → it changes nothing (idempotent) and
    reports "all present".
 Assertions: config.json exists with non-empty second_brain_root, inbox,
-tasks_personal, journal, archive; Notion shows the four DBs with correct
-properties (task DB unchanged from before the run — no DDL against it);
-Home contains the config block; `tasks_personal`'s mapping is recorded with
-`properties`/`status_values` and a `confirmed` marker — identity-mapped if
-scaffolded, discovered if adopted; a re-run with no local `config.json`
-reads the mapping from the Home block and skips re-disambiguation; a
-non-interactive run records `unconfirmed_roles` for any ambiguous role and
-reports it as a pending pick instead of guessing.
+tasks_personal, journal, archive, `home_page`, and `agents_page`; Notion shows
+the four DBs with correct properties (task DB unchanged from before the run —
+no DDL against it) and every page/DB shows exactly one icon (native icon, plain
+title); the AGENTS page contains the config block and the Home page does not;
+`tasks_personal`'s mapping is recorded with `properties`/`status_values` and a
+`confirmed` marker — identity-mapped if scaffolded, discovered if adopted; a
+re-run with no local `config.json` reads the mapping from the AGENTS block and
+skips re-disambiguation; a non-interactive run records `unconfirmed_roles` for
+any ambiguous role and reports it as a pending pick instead of guessing.
 
 ## Errors
 

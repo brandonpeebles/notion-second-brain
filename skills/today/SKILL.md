@@ -40,10 +40,10 @@ from it.
 
 If no `config.json` is found, fall back to discovery: `notion-search` for
 the root page named exactly `Second Brain` (emoji prefix allowed), then
-`notion-fetch` its `Home` child page and read the fenced ```json config
+`notion-fetch` its `AGENTS` child page and read the fenced ```json config
 block for the same keys, per the discovery convention in `schema.md`.
 
-If neither resolves (no config file and discovery finds no root/Home config
+If neither resolves (no config file and discovery finds no root/AGENTS config
 block, or finds multiple ambiguous candidates): **fail loudly**. State
 plainly that the second brain isn't set up yet, point the user at the
 `setup` skill, and **stop**. Never guess at IDs, never invent a target, and

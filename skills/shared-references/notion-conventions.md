@@ -25,6 +25,30 @@ Learned via live tests 2026-07-11; encode here so they're never re-derived.
   databases, not wiki properties.
 - Create pages in a wiki by parenting to the wiki **page** URL, not the data source.
 
+## Icons
+- Set a **native Notion icon**; never embed an emoji in the title. An emoji in
+  the title *and* the object's own icon slot renders as two icons side by side.
+- `notion-create-pages` and `notion-update-page` both take an `icon` field (an
+  emoji, a `:custom_emoji:` name, or an external image URL). Create pages with a
+  plain title + `icon`.
+- `notion-create-database` has **no** `icon` param. Create the DB with a plain
+  title, then set its icon with a follow-up `notion-update-page` against the
+  **database page id**. To change only the icon (no property edit), call
+  `command: "update_properties"` with `properties: {}` and the `icon` field — a
+  bare icon call errors with *"update_properties requires a properties
+  parameter."* (Verified live: setting a database's icon this way succeeds.)
+- **Repair on adopt:** if an existing object has an emoji in its title (and/or no
+  native icon), set the native icon and strip the leading emoji from the title.
+  Idempotent — a plain title + icon is left unchanged.
+
+## AI instructions (UI-only)
+- Designating a page as the workspace's **Notion AI Instructions** page
+  (page `···` → `Use with AI` → `Use as AI Instruction`, or Settings → Notion AI
+  → Add Instructions) is **UI-only** — no MCP/API tool sets it. Only **one**
+  instructions page is active at a time (setting a new one replaces the current).
+  Not verifiable via MCP; treat like "Turn into wiki" and the Waiting option —
+  guide the user, accept their confirmation, report as pending in Routine mode.
+
 ## Status properties
 - DDL can `ADD COLUMN "X" STATUS` but **only with Notion defaults** (Not started /
   In progress / Done). Custom options are rejected on ADD and ALTER; the three
@@ -32,7 +56,7 @@ Learned via live tests 2026-07-11; encode here so they're never re-derived.
 
 ## Trash / discard
 - There is **no page-level trash/delete tool.** Discard a row by moving it into the
-  `🗑 Archive` DB with `notion-move-pages` (or a property change). Data *sources*
+  `Archive` DB with `notion-move-pages` (or a property change). Data *sources*
   can be trashed via `notion-update-data-source {in_trash}` — not rows.
 
 ## Writes & concurrency

@@ -36,7 +36,7 @@ fixed schema on you: it maps each one's real property names and status
 values (title, status, due date, assignee, priority, ...) into
 `config.json`, and every other skill reads and writes through that mapping.
 Your database keeps its own shape — nothing is added, renamed, or removed.
-If you don't have one yet, `setup` scaffolds a default `✅ Tasks` database
+If you don't have one yet, `setup` scaffolds a default `Tasks` database
 instead.
 
 ## Requirements
@@ -130,7 +130,7 @@ Routine) so you have an offline backup.
 
 The repo itself ships no personal data — every workspace-specific
 identifier (database IDs, page IDs, your user ID) lives only in `config.json`
-and the Home page's config block inside your own Notion workspace, never in
+and the AGENTS page's config block inside your own Notion workspace, never in
 this repository.
 
 `config.json` is written to **your launch-folder cwd** (see First run above)
@@ -139,7 +139,7 @@ cannot protect it. If your launch folder happens to be inside a git repo you
 track, add your own `.gitignore` entry for `config.json` there, or use a
 launch folder that isn't a tracked repo at all.
 
-For Cowork/cloud sessions, there is no durable local filesystem: the Home
+For Cowork/cloud sessions, there is no durable local filesystem: the AGENTS
 page's config block (inside your own Notion workspace) is the durable copy,
 and any `config.json` on that surface is just a per-session cache — the
 gitignore framing above doesn't apply there.

@@ -94,8 +94,11 @@ only for structured queries against the wiki. New wiki pages must parent to
 ## Adopt / patch rules (used by `setup`)
 
 Never re-create anything that exists. Match by display-name convention during
-discovery, then record the real ID/URL in config. Two modes apply, depending
-on the database:
+discovery (tolerating a legacy leading emoji in the title), then record the real
+ID/URL in config. On adopt, also **repair the icon/title**: if the object's
+title carries a leading emoji and/or it has no native icon, set the native icon
+and strip the emoji from the title (see Icons in `notion-conventions.md`). Two
+modes apply for property patching, depending on the database:
 
 **Internal DBs (Inbox / Journal / Archive):**
 
