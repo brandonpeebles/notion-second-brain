@@ -60,8 +60,9 @@ routing below) instead of the Inbox, with `notion-create-pages`:
 - `Status` — `Not started`.
 - `Due` — the parsed date (see NL dates below).
 - `Source` — a URL or short origin text if present; otherwise leave blank.
-- `Assignee` — only when routed to a shared space and a partner is named
-  (see routing below).
+- `Assignee` — required whenever the row is routed to a shared space; set it
+  from the named partner, or ask/flag when none is named (see routing below).
+  Never routed to a shared space → leave unset.
 
 If the input doesn't clearly meet the shortcut bar, default to the Inbox —
 never guess a Task classification to avoid a follow-up question.
@@ -92,6 +93,13 @@ config, then confirm/resolve the Notion user via `notion-get-users`, and set
 space, say so plainly rather than guessing an ID, and leave `Assignee`
 unset.
 
+**Shared tasks always get an Assignee** (`two-person-rules.md`: a shared-space
+task with no assignee is incomplete — ask or infer, don't leave it blank). So
+when the row is routed to a shared space's Tasks DB but no partner is named:
+in interactive mode, ask who it's for before writing; in Routine mode (§5),
+mirror the ambiguous-date pattern — leave `Assignee` unset, still create the
+row, and flag the missing assignee in the report rather than guessing.
+
 Never write into a partner's private area — shared writes only ever target
 the named shared space's own Tasks database.
 
@@ -102,7 +110,8 @@ Inbox (or Tasks) row without prompting, using the best resolution available.
 Report the resolved date and any routing decisions in the response instead
 of asking to confirm. If a date is genuinely ambiguous and there's no one to
 ask, leave `Due` unset, still create the row, and flag the ambiguity in the
-report rather than guessing.
+report rather than guessing. Apply the same pattern to a missing shared-space
+`Assignee` (§4): leave it unset, still create the row, and flag it.
 
 ### 6. Errors
 
