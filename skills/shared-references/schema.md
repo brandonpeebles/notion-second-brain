@@ -56,7 +56,33 @@ DB.
 | Type | select | Task / Note / Idea / Reference — the capturer's guess |
 | Source | url or rich_text | where it came from |
 | Captured | created_time | |
-| Triage | select | New / Kept / Promoted — set by `triage` |
+| Triage | select | Values resolved via `inbox.triage_values` (see below); default `New` / `Kept` / `Promoted` — set by `triage` |
+
+### Inbox `Triage` values (config-resolved)
+
+The Inbox `Triage` **property name** is canonical and fixed (always `Triage`) —
+its name is never mapped. Its **enum values**, however, are resolved through an
+optional `inbox.triage_values` map in `config.json`, mirroring how task DBs
+resolve `status_values` (`task-db-mapping.md`). Roles:
+
+- `new` — the "unprocessed" value `capture` writes and `triage` filters the
+  queue on.
+- `processed` — the value `triage` writes when it promotes a row to a Task,
+  Wiki page, or Journal entry.
+- `kept` — the value `triage`'s "Keep in Inbox" outcome writes. **Optional:**
+  when `kept` is absent from the map, the Keep outcome writes nothing and leaves
+  the row at the `new` value, so it resurfaces in the next sweep. This is how a
+  two-value `New` / `Processed` scheme collapses the Keep outcome.
+
+**Default when `inbox.triage_values` is absent:**
+`{ "new": "New", "processed": "Promoted", "kept": "Kept" }` — identical to the
+plugin's original three-value behavior, so an existing workspace and any config
+without the key are unchanged. For the Raw-consolidation two-value scheme, set
+`"triage_values": { "new": "New", "processed": "Processed" }` and omit `kept`.
+
+Skills resolve these roles through this map and **never** hard-code a `Triage`
+value. This file is the single home for the role contract and the default —
+skills reference it rather than restating the default.
 
 ## Journal database schema (minimal; extensible in v0.3 `fold`)
 
@@ -130,7 +156,7 @@ patching the DB to match a canonical shape:
   "home_page": "page_id",
   "agents_page": "page_id",
   "wiki": { "database_id": "…", "data_source_url": "collection://…" },
-  "inbox": { "data_source_url": "…" },
+  "inbox": { "data_source_url": "…", "triage_values": { "new": "New", "processed": "Promoted", "kept": "Kept" } },
   "tasks_personal": {
     "data_source_url": "collection://…",
     "confirmed": true,
@@ -173,6 +199,11 @@ Each task DB object
 (role → real property name, roles omitted when absent) and `status_values`
 (role → real status value), plus the `confirmed` marker — see
 `task-db-mapping.md` for the full contract.
+
+`inbox.triage_values` is **optional** — a role→value map for the Inbox `Triage`
+select (see "Inbox `Triage` values" above). Omit it to use the default
+`New` / `Promoted` / `Kept`; set it to `{ "new": "New", "processed": "Processed" }`
+for the two-value consolidation scheme.
 
 ## Discovery config-block format (fallback when no `config.json`)
 
