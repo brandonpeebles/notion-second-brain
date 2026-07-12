@@ -229,7 +229,7 @@ the normal batch-confirm (§4) before anything is written.
 - **MCP unavailable** (`notion-query-data-sources`, `notion-search`,
   `notion-fetch`, `notion-create-pages`, `notion-update-page`, or
   `notion-move-pages` fails, unauthenticated or otherwise): say so plainly,
-  point the user at claude.ai → Settings → Connectors → Notion, and
+  check `/mcp` and confirm you're logged in with your claude.ai account, and
   **stop** — never fake a proposal, a confirmation, or a write.
 - **Rate limiting (`429`):** honor `Retry-After` and back off before
   retrying, per `notion-conventions.md`.

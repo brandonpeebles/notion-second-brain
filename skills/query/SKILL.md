@@ -207,9 +207,9 @@ answer, write it to a destination:
 
 - **MCP unavailable** (`notion-query-data-sources`, `notion-search`,
   `notion-fetch`, `notion-create-pages`, or `notion-update-page` fails,
-  unauthenticated or otherwise): say so plainly, point the user at claude.ai
-  → Settings → Connectors → Notion, and **stop** — never fake an answer or a
-  citation.
+  unauthenticated or otherwise): say so plainly, check `/mcp` and confirm
+  you're logged in with your claude.ai account, and **stop** — never fake an
+  answer or a citation.
 - **Rate limiting (`429`):** honor `Retry-After` and back off before
   retrying, per `notion-conventions.md`.
 - **Large/async writes:** if a file-back write returns an async task, poll

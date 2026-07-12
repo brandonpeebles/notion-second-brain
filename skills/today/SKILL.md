@@ -185,9 +185,9 @@ skipped.
 
 - **MCP unavailable** (`notion-query-data-sources`, `notion-search`,
   `notion-fetch`, `notion-create-pages`, or `notion-update-page` fails,
-  unauthenticated or otherwise): say so plainly, point at claude.ai →
-  Settings → Connectors → Notion, and **stop** — never fake a brief or
-  report tasks that weren't actually fetched.
+  unauthenticated or otherwise): say so plainly, check `/mcp` and confirm
+  you're logged in with your claude.ai account, and **stop** — never fake a
+  brief or report tasks that weren't actually fetched.
 - **Rate limiting (`429`):** honor `Retry-After` and back off before
   retrying, per `notion-conventions.md`.
 - **Large/async writes:** if the Journal upsert write returns an async

@@ -40,9 +40,9 @@ stop and report instead.
 
 Call `notion-get-users`. On failure (no connector, unauthenticated, or any
 MCP error): state plainly that the Notion connector is unavailable or
-unauthenticated, point the user at claude.ai → Settings → Connectors →
-Notion to connect it, and **stop**. Never fake success or proceed as if the
-workspace is reachable.
+unauthenticated, tell the user to check `/mcp` and confirm they're logged
+into Claude Code with their claude.ai account, and **stop**. Never fake
+success or proceed as if the workspace is reachable.
 
 On success, record the current user's id and display name — these become
 `notion_user_id` and `user` in `config.json` (§9).
@@ -382,8 +382,8 @@ reports it as a pending pick instead of guessing.
 
 - **Connector unavailable/unauthenticated** (`notion-get-users`, or any
   other Notion MCP call, fails): stop immediately, state the failure
-  plainly, and point the user at claude.ai → Settings → Connectors → Notion
-  to connect or reconnect it. Never fake success or continue as if the
+  plainly, and tell the user to check `/mcp` and confirm they're logged in
+  with their claude.ai account. Never fake success or continue as if the
   workspace were reachable.
 - **Multiple root candidates:** stop and ask the user which `Second Brain`
   page to use. Never guess.

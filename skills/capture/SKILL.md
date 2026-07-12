@@ -145,8 +145,8 @@ named by `properties.assignee` unset, still create the row, and flag it.
 
 - **MCP unavailable** (`notion-create-pages`, `notion-get-users`,
   `notion-search`, or `notion-fetch` fails, unauthenticated or otherwise):
-  say so plainly, point the user at claude.ai → Settings → Connectors →
-  Notion, and **stop**. Never fake success.
+  say so plainly, check `/mcp` and confirm you're logged in with your
+  claude.ai account, and **stop**. Never fake success.
 - **Rate limiting (`429`):** honor `Retry-After` and back off before
   retrying, per `notion-conventions.md`.
 
