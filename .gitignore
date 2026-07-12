@@ -4,3 +4,6 @@ config.json
 
 # OS / editor cruft
 .DS_Store
+
+# SDD scratch tooling (subagent-driven-development progress/briefs/reports)
+.superpowers/
