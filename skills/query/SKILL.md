@@ -80,7 +80,12 @@ each call targets exactly one `data_source_url`, per
   `notion_user_id` after merging), return matches from every DB the question
   touches — a shared space's Tasks DB is visible to both members by design,
   so a query skill doesn't need `today`'s "assignee = me" narrowing unless
-  asked for it.
+  asked for it. When shared-space tasks are included **without** a
+  "mine"-only narrowing filter, the merged answer must label each task with
+  its `Assignee` (or otherwise clearly mark which space/person each row
+  belongs to), so ownership is never silently ambiguous — the label comes
+  from the row's actual `Assignee` value at answer time, never a guessed
+  name.
 - **Single-DB questions** (Inbox, Journal, Wiki): one single-source call
   against that data source's `data_source_url`.
 - Translate the question into filters/sorts on real properties — e.g. "due
