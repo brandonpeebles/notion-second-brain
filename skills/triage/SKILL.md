@@ -86,9 +86,9 @@ signals, but the proposal is triage's own judgment, not a mechanical copy of
 Present the **full** proposed mapping as a single list — one line per row:
 its current `Name`, the proposed destination, and any destination-specific
 detail (shared vs. personal + assignee for Task; discard for Archive; etc.)
-— and get **one** confirmation before writing anything, per the bulk-write
-rule in `notion-conventions.md`. Do not confirm row-by-row and do not write
-before the confirmation covers the whole batch.
+— and get **one** confirmation before writing anything. Do not confirm
+row-by-row and do not write before the confirmation covers the whole batch:
+a single confirmation authorizes the entire batch of writes.
 
 If the user adjusts individual rows in their reply, fold the adjustments in
 and treat that reply as the confirmation for the (now-adjusted) batch — do
@@ -106,7 +106,17 @@ though no one is reading the chat response.
 ### 5. Execute the confirmed batch
 
 Once confirmed (interactive path only — never in Routine mode, per §4),
-write each row to its destination:
+write each row to its destination.
+
+**Where each `Triage` state comes from** (`schema.md`'s enum is
+`New / Kept / Promoted`): a Task, Wiki, or Journal promotion sets the Inbox
+row's `Triage = Promoted`; the "Keep in Inbox" outcome sets `Triage = Kept`
+(reviewed, deliberately left in the Inbox to revisit); an untriaged row
+stays `Triage = New`. (The brief attaches "Promoted/Kept" to the Journal
+step; here `Kept` is factored out into its own Keep outcome so a
+Journal-promoted note is unambiguously `Promoted` and every `Kept` row is a
+reviewed-and-left-in-Inbox row — the two states the weekly review, §7, then
+counts and ages.)
 
 - **Task** → `notion-create-pages` in the target Tasks data source
   (`tasks_personal.data_source_url` or the named
@@ -122,13 +132,15 @@ write each row to its destination:
   from the row's content/`Source`. Do not attempt to set custom wiki
   properties (e.g. Tags) via MCP — they're human-only. Then
   `notion-update-page` the Inbox row: `Triage = Promoted`.
-- **Journal** → upsert the same way `today` does: query
-  `journal.data_source_url` (single-source) for a row with `Date` matching
-  the Inbox row's `Captured` date; if found, `insert_content` the item into
-  that row's body; if not found, `notion-create-pages` a new row
-  (`Name` = a short label for the date, `Date` = that date, `Type = Daily`)
-  and write the content into it. Then `notion-update-page` the Inbox row:
-  `Triage = Promoted`.
+- **Journal** → **always** `notion-create-pages` a **distinct new row** in
+  `journal.data_source_url` for the promoted item: `Name` from the Inbox
+  row, `Date` = the Inbox row's `Captured` date, body seeded from the row's
+  content/`Source`. Never match-and-insert into an existing Journal row.
+  `today` owns the single daily-brief row (`Type = Daily`) for each date and
+  appends the brief into it; triage must not write into that row, or it
+  would commingle/clobber the daily brief. A triage-promoted note is its own
+  dated row, separate from the daily-brief row. Then `notion-update-page`
+  the Inbox row: `Triage = Promoted`.
 - **Archive (discard)** → `notion-move-pages` the Inbox row into
   `archive.data_source_url` — there is no page-trash tool, so the row must
   physically leave the Inbox, not just get flagged. `Archived` is automatic
