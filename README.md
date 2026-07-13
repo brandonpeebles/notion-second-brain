@@ -93,16 +93,31 @@ plugin.
 
 ### Cowork, cloud sessions, and Routines
 
-**Unverified** — plugin install and skill invocation on Cowork, cloud
-sessions, and Routines have not been tested end-to-end. The Notion connector
-itself supplies the transport wherever it's connected, but this README's
-tested and confirmed surface is the **Claude Code CLI with the claude.ai
-Notion connector**; treat anything beyond that as unconfirmed until verified.
+**Partly verified** — the durability-mode logic and the no-git degradation are
+implemented, but end-to-end plugin install and Cowork persistence have not been
+tested against a live Cowork VM. The Notion connector supplies the transport
+wherever it's connected; the tested-and-confirmed surface remains the **Claude
+Code CLI with the claude.ai Notion connector**.
 
-For Cowork specifically, run `cowork-context` in your local CLI to compile your
-config and saved context into a block you paste into the Cowork project's
-instructions field — a Cowork session has no durable filesystem, so it can't
-read your local `config.json`/`CLAUDE.md` directly.
+`setup` detects whether it has a durable filesystem and adapts:
+
+- **Have a second-brain repo?** (Persona A — you set up via the CLI once.) In
+  Cowork, **attach that repo folder** to the project. `setup` finds
+  `config.json` in the cwd, runs the durable path, and `save-context` /
+  `cowork-context` read your `CLAUDE.md` directly — just like the CLI. (The
+  Cowork VM may lack `git`; edits are written to your attached folder and you
+  commit them from your own machine later.)
+- **No repo?** (Persona B — Cowork-primary.) **Connect the Notion connector**
+  from Cowork's connector settings, then run `setup`. It runs the **ephemeral**
+  path: it skips the git bootstrap, writes **no** local `config.json`, and
+  persists your whole config into the AGENTS page's config block in Notion.
+  Every later Cowork session reads that block back — no re-scaffolding, no
+  re-disambiguation. Paste the AGENTS page URL once via `cowork-context` to make
+  that a single `notion-fetch`.
+
+An ephemeral `setup` run still involves the manual Notion-UI steps (turn the Wiki
+page into a wiki, add the Waiting status option, confirm your timezone) — it is
+not fully one-shot.
 
 ## First run
 
