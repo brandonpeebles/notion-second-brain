@@ -12,7 +12,7 @@ Icons shown are native icons; titles carry no emoji.
 
 ```
 🧠 Second Brain              ← root; title exactly "Second Brain" (leading emoji tolerated on adopt)
-├── ⚡ Inbox      [database]
+├── 📨 Raw        [database]  ← capture store; "Inbox" is a saved view on it (Triage = New)
 ├── ✅ Tasks      [database]
 ├── 📚 Wiki       [wiki]      ← created via "Turn into wiki" (UI only)
 ├── 📓 Journal    [database]
@@ -48,15 +48,42 @@ and verifies it) into the **In progress** group. Never attempt to add or
 rename status options via MCP — and never add a status option to an adopted
 DB.
 
-## Inbox database schema
+## Raw database schema (the Inbox store)
+
+The plugin's single capture store is a database titled **Raw** — it holds every
+captured item, unprocessed and processed alike; processing changes a row's
+`Triage`, it never deletes the row. **"Inbox" is not a separate database** — it's
+a saved **view** on Raw, filtered to `Triage =` the `new` value, that `capture`
+feeds and `triage` sweeps (see "The Inbox view" below). Skills still address this
+store via the single `inbox.data_source_url` config key regardless of what the
+underlying database happens to be titled.
 
 | Property | Type | Notes |
 |---|---|---|
 | Name | title | |
-| Type | select | Task / Note / Idea / Reference — the capturer's guess |
+| Type | select | Task / Note / Idea / Reference — the capturer's guess. `capture` only ever picks among these four; extra hand-added options (e.g. Article, Meeting notes) are left alone |
 | Source | url or rich_text | where it came from |
 | Captured | created_time | |
-| Triage | select | Values resolved via `inbox.triage_values` (see below); default `New` / `Kept` / `Promoted` — set by `triage` |
+| Triage | select | Values resolved via `inbox.triage_values` (see below); default `New` / `Processed` — set by `triage` |
+
+Additive human-added properties (e.g. a `Tags` multi-select) are common and left
+alone — the plugin never creates, requires, or writes them.
+
+### The "Inbox" view
+
+`setup` creates (when scaffolding) or adopts (when discovering) a saved view
+named exactly **Inbox** on Raw, filtered to `Triage =` the `new` value resolved
+from `inbox.triage_values`, via `notion-create-view`/`notion-update-view` (see
+`notion-conventions.md`). This view has no effect on `capture`/`triage` logic —
+they already query/filter `inbox.data_source_url` directly and never depend on
+the view existing. Its URL is recorded as `inbox.view_url` (optional) purely so
+a re-run can verify/update it idempotently without re-searching — **not** for
+Home-page linking: a `?v=` view link does not survive as page content (see
+`notion-conventions.md`), so the Home page's "Inbox" quick link always points
+to Raw's own page, same as "Raw" does. Making Notion open straight to the
+Inbox view on click requires reordering Raw's views in the UI so Inbox is
+leftmost/default — a manual step outside MCP's reach, not something `setup`
+can do or verify.
 
 ### Inbox `Triage` values (config-resolved)
 
@@ -71,14 +98,14 @@ resolve `status_values` (`task-db-mapping.md`). Roles:
   Wiki page, or Journal entry.
 - `kept` — the value `triage`'s "Keep in Inbox" outcome writes. **Optional:**
   when `kept` is absent from the map, the Keep outcome writes nothing and leaves
-  the row at the `new` value, so it resurfaces in the next sweep. This is how a
-  two-value `New` / `Processed` scheme collapses the Keep outcome.
+  the row at the `new` value, so it resurfaces in the next sweep. This is how the
+  default two-value `New` / `Processed` scheme collapses the Keep outcome.
 
 **Default when `inbox.triage_values` is absent:**
-`{ "new": "New", "processed": "Promoted", "kept": "Kept" }` — identical to the
-plugin's original three-value behavior, so an existing workspace and any config
-without the key are unchanged. For the Raw-consolidation two-value scheme, set
-`"triage_values": { "new": "New", "processed": "Processed" }` and omit `kept`.
+`{ "new": "New", "processed": "Processed" }` — the two-value scheme, matching a
+freshly scaffolded Raw database. A workspace still running the plugin's original
+three-value scheme sets `"triage_values": { "new": "New", "processed":
+"Promoted", "kept": "Kept" }` explicitly.
 
 Skills resolve these roles through this map and **never** hard-code a `Triage`
 value. This file is the single home for the role contract and the default —
@@ -104,7 +131,7 @@ and a dedicated note `Type` (v0.3) and may extend this schema.
 |---|---|---|
 | Name | title | preserved from the archived row |
 | Archived | created_time | |
-| Origin | rich_text | where the row came from (e.g. "Inbox") |
+| Origin | rich_text | where the row came from (e.g. "Raw") |
 
 ## Wiki
 
@@ -126,13 +153,20 @@ title carries a leading emoji and/or it has no native icon, set the native icon
 and strip the emoji from the title (see Icons in `notion-conventions.md`). Two
 modes apply for property patching, depending on the database:
 
-**Internal DBs (Inbox / Journal / Archive):**
+**Internal DBs (Raw / Journal / Archive):**
 
 - For an existing database: verify each required property above exists with the
   right type; **add** missing properties (`notion-update-data-source` DDL);
   never drop or retype existing ones.
 - If a required property exists with a conflicting type, do **not** mutate —
   report the conflict and stop for that database.
+- **Raw discovery convention:** search for a child titled exactly `Raw` first
+  (leading emoji tolerated). If not found, fall back to a child titled `Inbox`
+  — a pre-consolidation workspace — and adopt it as-is under its own title,
+  never force-renamed to `Raw`. Only when **neither** is found does setup
+  scaffold a fresh `Raw` database. Either way, `inbox.triage_values` is decided
+  by inspecting the DB's actual `Triage` select options (see setup §3), never
+  by which title was matched.
 
 **Task DBs (personal + shared): map, never mutate.** See
 `task-db-mapping.md` for the full contract. Setup discovers the DB's actual
@@ -156,7 +190,7 @@ patching the DB to match a canonical shape:
   "home_page": "page_id",
   "agents_page": "page_id",
   "wiki": { "database_id": "…", "data_source_url": "collection://…" },
-  "inbox": { "data_source_url": "…", "triage_values": { "new": "New", "processed": "Promoted", "kept": "Kept" } },
+  "inbox": { "data_source_url": "…", "triage_values": { "new": "New", "processed": "Processed" }, "view_url": "view://…" },
   "tasks_personal": {
     "data_source_url": "collection://…",
     "confirmed": true,
@@ -202,9 +236,15 @@ Each task DB object
 `task-db-mapping.md` for the full contract.
 
 `inbox.triage_values` is **optional** — a role→value map for the Inbox `Triage`
-select (see "Inbox `Triage` values" above). Omit it to use the default
-`New` / `Promoted` / `Kept`; set it to `{ "new": "New", "processed": "Processed" }`
-for the two-value consolidation scheme.
+select (see "Inbox `Triage` values" above). Omit it to use the default two-value
+`New` / `Processed` scheme; set it explicitly to
+`{ "new": "New", "processed": "Promoted", "kept": "Kept" }` to keep the plugin's
+original three-value scheme.
+
+`inbox.view_url` is **optional** — the saved "Inbox" view on Raw (see "The
+Inbox view" above), used only to render the Home page's Inbox quick link. Its
+absence never blocks `capture`/`triage`, which address Raw directly via
+`inbox.data_source_url`.
 
 ## Discovery config-block format (fallback when no `config.json`)
 

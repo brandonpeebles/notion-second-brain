@@ -78,6 +78,32 @@ resource `notion://docs/enhanced-markdown-spec` (read it; don't guess mention sy
   **freshly-fetched** body text, never the string you originally wrote (this is
   already how a fetch-then-replace sequence like `today` §4→§5 is ordered).
 
+## Views
+- `notion-create-view` adds a saved view to an existing database (`database_id`
+  + `data_source_id`) or an inline linked-database view on a page
+  (`parent_page_id` + `data_source_id`). `notion-update-view` edits an
+  existing view's name/filter/sort by `view_id`. Both take a small DSL in
+  `configure`, e.g. `FILTER "Triage" = "New"` — see the
+  `notion://docs/view-dsl-spec` MCP resource for the full syntax.
+- **Idempotent creation:** before creating a view, `notion-fetch` the database
+  and check its `<views>` list for one already named the same — never create a
+  duplicate.
+- **Linking to a view from elsewhere:** a view has its own `view://…` URI
+  (returned by `notion-create-view`/shown in a database's `<views>` list) and
+  a human-clickable form — the database's page URL with `?v=<view-id-no-dashes>`
+  appended. Use the `view://` form when passing the view to another MCP tool
+  (e.g. `notion-update-view`).
+- **`?v=` links do not survive as page-content mentions.** A markdown link
+  `[text](url?v=…)` written into a page's body is resolved to a live page
+  mention on write, and the mention **drops the `?v=` query string** — a
+  re-fetch shows the bare page URL (verified live: the param is gone
+  immediately after the write that set it, not just on a later re-fetch). Do
+  **not** rely on this to deep-link a Home-page quick link to a specific view.
+  To make a view the one a page-mention click lands on, reorder the
+  database's views in the Notion UI so the desired view is leftmost/default
+  (not exposed via MCP) — otherwise just link to the database's page, which
+  opens whichever view is currently first.
+
 ## Writes & concurrency
 - Prefer `update_content` / `insert_content` and property updates over whole-page
   replacement to avoid clobbering concurrent human edits.

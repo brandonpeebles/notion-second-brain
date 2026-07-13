@@ -10,7 +10,7 @@ brain. Phone-first: minimize prompts, default to the Inbox, and only ask a
 question when a date is genuinely ambiguous, a shared space is implied but
 unresolved, or a shared-space task has no assignee named.
 
-Consult `../shared-references/schema.md` for the Inbox and Task schemas
+Consult `../shared-references/schema.md` for the Raw (Inbox store) and Task schemas
 (property names/types) and the `config.json` key set. Consult
 `../shared-references/task-db-mapping.md` for how task-DB property names and
 status values are resolved. Consult `../shared-references/two-person-rules.md`

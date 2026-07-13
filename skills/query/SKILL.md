@@ -11,8 +11,8 @@ search over page/row content — and the final answer is grounded in whatever
 was actually fetched, with citations. Optionally file the answer back to the
 wiki or the Journal when asked.
 
-Consult `../shared-references/schema.md` for the Wiki, Task, Journal, and
-Inbox schemas (property names/types) and the `config.json` key set. Consult
+Consult `../shared-references/schema.md` for the Wiki, Task, Journal, and Raw
+(Inbox store) schemas (property names/types) and the `config.json` key set. Consult
 `../shared-references/notion-conventions.md` for MCP quirks (single-source
 queries, the dual-path rule, the wiki parent-URL quirk, rate limits, async
 writes), `../shared-references/query-plan-gating.md` for the plan-gate error

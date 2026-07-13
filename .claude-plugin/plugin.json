@@ -1,7 +1,7 @@
 {
   "name": "notion-second-brain",
   "description": "Operate your second brain on Notion — personal, with optional shared spaces: zero-decision capture, daily briefs, inbox triage, and cited queries over your wiki, tasks, and journal — all through the built-in Notion connector. Adapts to your existing task databases (maps to their schema, never modifies them).",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "author": { "name": "brandonpeebles" },
   "repository": "https://github.com/brandonpeebles/notion-second-brain",
   "license": "MIT",

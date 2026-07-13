@@ -30,7 +30,7 @@ and `../shared-references/query-plan-gating.md` for the plan-gate error
 signature and per-tier gate map (used by the query-gating test, §8). Consult
 `../shared-references/saved-context.md` for the managed `## Second brain context`
 section in the user-repo `CLAUDE.md` that this skill seeds (§0.3) and repairs (§2).
-`config.json`'s **keys** and the **internal DBs'** (Inbox/Journal/Archive)
+`config.json`'s **keys** and the **internal DBs'** (Raw/Journal/Archive)
 property names stay canonical — use them exactly as `schema.md` defines them,
 do not paraphrase or rename. **Task-DB property names and status values are
 not canonical** — they are discovered per-DB and recorded as a mapping
@@ -300,51 +300,77 @@ bullet only on their OK. Never in Routine/non-interactive mode (§10). Structure
 config (timezone, DB mappings, member IDs) is **not** context — it belongs in
 `config.json`, so keep it there rather than in a context bullet.
 
-### 3. Scaffold or adopt the internal databases (Inbox, Journal, Archive)
+### 3. Scaffold or adopt the internal databases (Raw, Journal, Archive)
 
-Under the root, scaffold or adopt Inbox, Journal, and Archive using the
-schemas in `schema.md` and its internal-DB adopt/patch rules. These three are
+Under the root, scaffold or adopt Raw, Journal, and Archive using the schemas
+in `schema.md` and its internal-DB adopt/patch rules. These three are
 plugin-owned and stay canonical — unlike task DBs (§3b, §7), they are safe to
 additively patch.
 
 - For each database, `notion-search`/`notion-fetch` under the root for a
-  child matching the display-name convention (`Inbox`, `Journal`, `Archive` —
-  tolerating a legacy leading emoji in the title).
+  child matching the display-name convention (`Journal`, `Archive` —
+  tolerating a legacy leading emoji in the title). For the capture store,
+  search for `Raw` first; if not found, fall back to a legacy `Inbox`-titled
+  child and adopt it as-is under its own title (never force-rename it to
+  `Raw`) — per `schema.md`'s Raw discovery convention.
 - **Missing:** create it with `notion-create-database` using a **plain title**
-  (`Inbox`/`Journal`/`Archive`) and the exact properties and types from
+  (`Raw`/`Journal`/`Archive`) and the exact properties and types from
   `schema.md`. `notion-create-database` has no icon field, so immediately
   **set the native icon** with a follow-up `notion-update-page` on the new
-  database's page id (`⚡`/`📓`/`🗑`; use `command: "update_properties"`,
+  database's page id (`📨`/`📓`/`🗑`; use `command: "update_properties"`,
   `properties: {}`, `icon: "…"` — per the Icons convention).
 - **Existing:** verify every required property exists with the right type;
   **add** any missing properties with `notion-update-data-source` (DDL).
   Never drop or retype an existing property. Also **repair icon/title** if
-  needed (set the native icon, strip any leading emoji from the title).
+  needed (set the native icon, strip any leading emoji from the title) —
+  except a legacy-adopted `Inbox` keeps its own title, per above.
 - **Type conflict** (a required property exists with the wrong type): do
   **not** mutate it. Report the conflict for that database and skip it —
   continue with the remaining databases.
 
 Record each database's `data_source_url` for `config.json`.
 
-**Record the Inbox `Triage` values map.** Alongside the Inbox's
-`data_source_url`, record `inbox.triage_values` (the role→value map defined in
-`schema.md`) so `capture`/`triage` resolve the right `Triage` values:
+**Create or adopt the "Inbox" view on Raw.** `notion-fetch` the Raw (or legacy
+Inbox) database and check its `<views>` list for one named exactly `Inbox`:
 
-- **Scaffolded Inbox** (setup just created it): record the default map
-  `{ "new": "New", "processed": "Promoted", "kept": "Kept" }` — an identity map
-  over the values setup created.
-- **Adopted Inbox** (an existing DB, including a consolidated Raw DB): fetch the
-  `Triage` select's options. If they are exactly `New`/`Kept`/`Promoted`
-  (case-insensitive), record the default map above. Otherwise —
-  **interactive:** echo the options and ask which fills `new` (the unprocessed
-  queue value) and which fills `processed`; record `kept` only if the user
-  names a third option; record the confirmed map. **Non-interactive (Routine):**
-  record only the roles whose value matches an option by exact name (`New`→`new`,
-  `Processed`/`Promoted`→`processed`, `Kept`→`kept`); if `new` or `processed`
-  cannot be matched, **omit `inbox.triage_values` entirely** (skills then fall
-  back to the `schema.md` default) and report it as a pending pick for a later
-  interactive run, mirroring the wiki/Waiting pending-manual-step pattern (§10).
-  Never guess an unmatched role.
+- **Missing:** create it with `notion-create-view` (`data_source_id` = the
+  Raw/Inbox data source, `type: "table"`, `name: "Inbox"`, `configure: 'FILTER
+  "Triage" = "<new value>"'` using the `new` value resolved below) — see
+  `notion-conventions.md`.
+- **Found:** adopt it — if its filter doesn't match the resolved `new` value,
+  update it with `notion-update-view` rather than creating a duplicate.
+
+Record its URL as `inbox.view_url` (the `view://…` form — see
+`notion-conventions.md`'s Views section) for `config.json`, used only so a
+re-run can verify/update the view idempotently — **not** for Home-page linking
+(the Home page links "Inbox" to Raw's own page regardless, per §6b, since a
+`?v=` link doesn't survive as page content). This step is additive and
+best-effort: if view creation/update fails for any reason, log it and
+continue.
+
+**Record the Inbox `Triage` values map.** Alongside Raw's `data_source_url`,
+record `inbox.triage_values` (the role→value map defined in `schema.md`) so
+`capture`/`triage` resolve the right `Triage` values — and so the view above is
+filtered on the right value:
+
+- **Scaffolded** (setup just created the database): record the default map
+  `{ "new": "New", "processed": "Processed" }` — an identity map over the
+  values setup created.
+- **Adopted** (an existing DB, whether titled `Raw` or a legacy `Inbox`): fetch
+  the `Triage` select's options. If they are exactly `New`/`Processed`
+  (case-insensitive), record the default two-value map above. If they are
+  exactly `New`/`Kept`/`Promoted` (the plugin's original three-value scheme),
+  record `{ "new": "New", "processed": "Promoted", "kept": "Kept" }` explicitly.
+  Otherwise — **interactive:** echo the options and ask which fills `new` (the
+  unprocessed queue value) and which fills `processed`; record `kept` only if
+  the user names a third option; record the confirmed map.
+  **Non-interactive (Routine):** record only the roles whose value matches an
+  option by exact name (`New`→`new`, `Processed`/`Promoted`→`processed`,
+  `Kept`→`kept`); if `new` or `processed` cannot be matched, **omit
+  `inbox.triage_values` entirely** (skills then fall back to the `schema.md`
+  default) and report it as a pending pick for a later interactive run,
+  mirroring the wiki/Waiting pending-manual-step pattern (§10). Never guess an
+  unmatched role.
 
 ### 3b. Discover or scaffold the personal task DB (adopt-first)
 
@@ -517,7 +543,7 @@ The AGENTS.md of this Notion second brain — instructions for how AI should wor
 here, and the config block the plugin's skills read. Humans: use the Home page.
 
 ## How to work in this workspace
-- File captures in Inbox; promote to Tasks/Journal/Wiki during triage.
+- File captures in Raw (the "Inbox" view shows the unprocessed queue); promote to Tasks/Journal/Wiki during triage.
 - Discard by moving rows to Archive (there is no page-trash).
 - Keep answers concise and cite the source page when answering from the brain.
 
@@ -569,34 +595,42 @@ AGENTS). Example body:
 
 Your second brain. Talk to Claude — or run a slash command — to use it.
 
-## Your databases
-- Inbox — where captures land
-- Tasks — what to do
-- Journal — daily notes
-- Wiki — reference
+## Quick links
+- Inbox — where unprocessed captures land for triage
+- Raw — where source material, articles, emails, etc. is dumped to be ingested
+- Tasks — your private tasks (excludes shared tasks)
+- Journal — daily notes generated from `/notion-second-brain:today`
+- Wiki — the AI-processed and managed representation of your raw content
 - Archive — discarded items
 
 ## Everyday workflows
-- Capture — drop a task, note, idea, or reference into the Inbox, no
-  decisions. Say "capture …" or run /notion-second-brain:capture.
-- Daily brief — see what's overdue and due today alongside your calendar, and
-  write today's Journal entry. Ask "what's on today?" or run
-  /notion-second-brain:today.
-- Triage the Inbox — turn each captured item into a task, wiki page, or journal
-  entry (or archive it). Say "process my inbox" or run
-  /notion-second-brain:triage.
-- Ask your brain — get a cited answer from your wiki, tasks, and journal. Just
-  ask a question, or run /notion-second-brain:query.
+- **Capture** — drop a task, note, idea, or reference into the Inbox, no
+  decisions. Say "capture …" or run `/notion-second-brain:capture`.
+- **Daily brief** — see what's overdue and due today alongside your calendar,
+  and write today's Journal entry. Ask "what's on today?" or run
+  `/notion-second-brain:today`. Add your own thoughts/tasks there during the
+  day, then run `/notion-second-brain:triage` later to process them.
+- **Triage the Inbox** — turn each captured item into a task, wiki page, or
+  journal entry (or archive it). Say "process my inbox" or run
+  `/notion-second-brain:triage`.
+- **Ask your brain** — get a cited answer from your wiki, tasks, and journal.
+  Just ask a question, or run `/notion-second-brain:query`.
 
 ## Setup & maintenance
-- /notion-second-brain:setup — set up or repair this workspace.
-- /notion-second-brain:save-context — remember a workspace convention.
-- /notion-second-brain:cowork-context — run your second brain in Cowork.
+- `/notion-second-brain:setup` — set up or repair this workspace
+- `/notion-second-brain:save-context` — remember a workspace convention
+- `/notion-second-brain:cowork-context` — generate project instructions for
+  running your second brain in Cowork
 ```
 
-Render the database names under `## Your databases` as Notion page/DB mentions
+Render the database names under `## Quick links` as Notion page/DB mentions
 (or child-page links); leave the skill names as literal
-`/notion-second-brain:<name>` text. Record `home_page` for `config.json`.
+`/notion-second-brain:<name>` text. Link both **Inbox** and **Raw** to Raw's
+own page — a `?v=` view link does not survive as page content (verified live;
+see `notion-conventions.md`), so there's no way to deep-link "Inbox" to just
+the filtered view from here; the two bullets share a target but keep distinct
+wording (queue to triage vs. full store to dump into). Record `home_page` for
+`config.json`.
 
 ### 7. Shared spaces (zero or more)
 
@@ -635,7 +669,7 @@ whatever is already in the adopted `config.json` (do not invent spaces).
 ### 8. Query-gating test
 
 Issue one single-source filtered+sorted `notion-query-data-sources` query
-against a scratch data source (or the Inbox data source if no scratch DB is
+against a scratch data source (or the Raw data source if no scratch DB is
 available) — never a cross-data-source query, per
 `notion-conventions.md`.
 
@@ -734,11 +768,12 @@ Smoke test (run against a live Notion workspace):
    the `ns2b:context` marker pair), and a personal `README.md`, then push a first
    commit. Re-running inside that repo skips Step 0 (0.0 detection).
 2. Expect setup to: ping the connector (notion-get-users) OK; find or create the
-   "Second Brain" root; create/adopt Inbox, Journal, Archive with the
+   "Second Brain" root; create/adopt Raw, Journal, Archive with the
    schema.md schemas — each with a plain title and a native icon (no emoji in
-   the title); discover-or-scaffold the personal task DB per §3b; create/adopt
-   the AGENTS page with a fenced config block and a separate Home page (DB links
-   plus a short everyday-workflow guide);
+   the title); create/adopt the "Inbox" saved view on Raw filtered to the
+   resolved `new` Triage value; discover-or-scaffold the personal task DB per
+   §3b; create/adopt the AGENTS page with a fenced config block and a separate
+   Home page (DB links plus a short everyday-workflow guide);
    write config.json with all keys populated.
 3. Expect setup to run the gating test: a single-source filtered+sorted query
    against a scratch DB, and report path = "structured" or "fallback".
@@ -749,11 +784,13 @@ Smoke test (run against a live Notion workspace):
 5. Re-run setup on the now-populated folder → it changes nothing (idempotent) and
    reports "all present".
 Assertions: config.json exists with non-empty second_brain_root, inbox
-(`data_source_url`, plus `triage_values` when setup recorded it per §3),
-tasks_personal, journal, archive, `home_page`, and `agents_page`; Notion shows
-the four DBs with correct properties (task DB unchanged from before the run —
-no DDL against it) and every page/DB shows exactly one icon (native icon, plain
-title); the AGENTS page contains the config block and the Home page does not;
+(`data_source_url`, plus `triage_values` and `view_url` when setup recorded
+them per §3), tasks_personal, journal, archive, `home_page`, and
+`agents_page`; Notion shows the four DBs with correct properties (task DB
+unchanged from before the run — no DDL against it), a saved "Inbox" view on
+Raw filtered to the resolved `new` value, and every page/DB shows exactly one
+icon (native icon, plain title); the AGENTS page contains the config block and
+the Home page does not;
 `tasks_personal`'s mapping is recorded with `properties`/`status_values` and a
 `confirmed` marker — identity-mapped if scaffolded, discovered if adopted; a
 re-run with no local `config.json` reads the mapping from the AGENTS block and
@@ -776,7 +813,7 @@ it to a single section preserving every bullet (§2).
   workspace were reachable.
 - **Multiple root candidates:** stop and ask the user which `Second Brain`
   page to use. Never guess.
-- **Property type conflict on an existing internal DB (Inbox/Journal/
+- **Property type conflict on an existing internal DB (Raw/Journal/
   Archive):** never mutate it — report the conflicting database and
   property, skip that database, and continue with the rest of the run. Task
   DBs never receive DDL, so a "wrong type" on a task DB isn't a

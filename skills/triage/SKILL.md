@@ -13,8 +13,8 @@ batch.
 v0.1 promotes to the wiki inline (no separate `ingestor` agent — that lands
 in v0.2).
 
-Consult `../shared-references/schema.md` for the Inbox, Task, Journal, and
-Archive schemas (property names/types), the Wiki rules, and the
+Consult `../shared-references/schema.md` for the Raw (Inbox store), Task,
+Journal, and Archive schemas (property names/types), the Wiki rules, and the
 `config.json` key set. Consult `../shared-references/task-db-mapping.md` for
 the task-DB mapping contract: the Task-promotion write (§5) is the **only**
 place this skill touches a task DB, and it must resolve property names and
@@ -22,8 +22,8 @@ status values from the target task DB's `properties`/`status_values` —
 look up each role, use the returned real name, and skip any role that isn't
 mapped for that DB; never hard-code `Name`/`Status`/`Not started`/`Due`/
 `Source`/`Assignee`. Inbox reads (`Type`/`Triage`/`Source`/`Captured`/`Name`,
-§2/§3) are internal to the plugin — the Inbox has no mapping and those names
-stay canonical, unchanged by this. Consult
+§2/§3) are internal to the plugin — the Raw database has no mapping and those
+names stay canonical, unchanged by this. Consult
 `../shared-references/two-person-rules.md`
 for shared-vs-personal Task routing and assignee resolution. Consult
 `../shared-references/notion-conventions.md` for MCP quirks (single-source
@@ -32,7 +32,7 @@ writes), and `../shared-references/query-plan-gating.md` for the plan-gate
 error signature and fallback decision tree. Consult
 `../shared-references/saved-context.md` when the sweep reveals a durable
 workspace convention worth persisting (§6b). Use the config keys and the
-internal (Inbox/Wiki/Journal/Archive) property names exactly as `schema.md`
+internal (Raw/Wiki/Journal/Archive) property names exactly as `schema.md`
 defines them — do not paraphrase or rename; task-DB property names and
 status values come from the mapping instead, per above.
 
@@ -165,7 +165,8 @@ write each row to its destination.
 
 **Where each `Triage` state comes from** (values resolved from
 `inbox.triage_values` per `schema.md`; default `new`=`New`,
-`processed`=`Promoted`, `kept`=`Kept`): a Task, Wiki, or Journal promotion sets
+`processed`=`Processed` — the three-value scheme with a `kept` bucket is
+opt-in, see `schema.md`): a Task, Wiki, or Journal promotion sets
 the Inbox row's `Triage =` the `processed` value; the "Keep in Inbox" outcome
 sets `Triage =` the `kept` value when `kept` is mapped (reviewed, deliberately
 left in the Inbox to revisit), or writes nothing and leaves the row at the
@@ -194,13 +195,13 @@ mapped.)
   (`Name`/`Status`/`Due`/`Source`/`Assignee`) directly — always resolve
   through the mapping, and never write to a role listed under that DB's
   `unconfirmed_roles`. Then `notion-update-page` the Inbox row:
-  `Triage =` the `processed` value (resolved from `inbox.triage_values`; default `Promoted`).
+  `Triage =` the `processed` value (resolved from `inbox.triage_values`; default `Processed`).
 - **Wiki** → `notion-create-pages` parented to the wiki **page** URL
   (`wiki.database_id` from config) — never `wiki.data_source_url`, per the
   wiki parent-URL quirk in `notion-conventions.md`. Title from the Inbox
   row's `Name`; body seeded from the row's content/`Source`. Do not attempt
   to set custom wiki properties (e.g. Tags) via MCP — they're human-only.
-  Then `notion-update-page` the Inbox row: `Triage =` the `processed` value (resolved from `inbox.triage_values`; default `Promoted`).
+  Then `notion-update-page` the Inbox row: `Triage =` the `processed` value (resolved from `inbox.triage_values`; default `Processed`).
 - **Journal** → **always** `notion-create-pages` a **distinct new row** in
   `journal.data_source_url` for the promoted item: `Name` from the Inbox
   row, `Date` = the Inbox row's `Captured` date, body seeded from the row's
@@ -212,16 +213,17 @@ mapped.)
   the two skills can never clobber each other's Journal content. (A dedicated
   note `Type` arrives with the v0.3 `fold` schema extension; until then,
   unset is correct.) Then `notion-update-page` the Inbox row:
-  `Triage =` the `processed` value (resolved from `inbox.triage_values`; default `Promoted`).
+  `Triage =` the `processed` value (resolved from `inbox.triage_values`; default `Processed`).
 - **Archive (discard)** → `notion-move-pages` the Inbox row into
   `archive.data_source_url` — there is no page-trash tool, so the row must
   physically leave the Inbox, not just get flagged. `Archived` is automatic
   (`created_time`) — never set it manually. After the move, set
-  `Origin = "Inbox"` via `notion-update-page` if it isn't already populated.
+  `Origin = "Raw"` via `notion-update-page` if it isn't already populated.
 - **Keep** → no page created, no move. If `kept` is mapped in
   `inbox.triage_values`, `notion-update-page` the Inbox row: `Triage =` the
-  `kept` value (default `Kept`). If `kept` is unmapped, write nothing — the row
-  stays at the `new` value and remains in the queue.
+  `kept` value (e.g. `Kept`, when mapped — see `schema.md`). If `kept` is
+  unmapped, write nothing — the row stays at the `new` value and remains in
+  the queue.
 
 Execute writes per row; if one row's write fails mid-batch, continue with
 the rest and report exactly which rows succeeded and which failed (§8) —
@@ -256,8 +258,8 @@ via the same single-source `notion-query-data-sources` call, and produce a
 summary in addition to (or instead of) the normal §3 proposals:
 
 - Counts by `Triage`, one bucket per value present in `inbox.triage_values`
-  (default `new`=`New` / `kept`=`Kept` / `processed`=`Promoted`; a two-value
-  scheme has no `kept` bucket).
+  (default `new`=`New` / `processed`=`Processed`; the three-value scheme with
+  a `kept` bucket is opt-in — see `schema.md`).
 - A called-out list of **stale** rows — at the `new` value (or the `kept` value
   when mapped) with `Captured` older than 14 days — since these are the ones
   quietly aging in the Inbox without a decision.
@@ -296,8 +298,8 @@ Assertions: triage proposes a batch — (a) → Task, (b) → Wiki or Journal,
 (c) → Archive — presents it as a single mapping, and gets exactly **one**
 confirmation. After confirming:
 - (a) a Task row exists in the appropriate Tasks database with the expected
-  properties, and the Inbox row's `Triage =` the `processed` value (resolved from `inbox.triage_values`; default `Promoted`).
+  properties, and the Inbox row's `Triage =` the `processed` value (resolved from `inbox.triage_values`; default `Processed`).
 - (b) a Wiki page (parented to the wiki **page** URL, not its data source)
-  or a Journal row exists, and the Inbox row's `Triage =` the `processed` value (resolved from `inbox.triage_values`; default `Promoted`).
+  or a Journal row exists, and the Inbox row's `Triage =` the `processed` value (resolved from `inbox.triage_values`; default `Processed`).
 - (c) the row has physically **moved** into the Archive database (not just
   flagged) and no longer appears in the Inbox.
