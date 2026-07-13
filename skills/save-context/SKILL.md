@@ -17,17 +17,28 @@ create-or-update protocol. Consult `../shared-references/schema.md` for the
 `config.json` key set — the boundary that tells structured config (which belongs
 in `config.json` via `setup`) apart from soft context (which belongs here).
 
+Consult `../shared-references/durability-modes.md` for the mode this skill
+branches on — `durable` writes the repo `CLAUDE.md`; `ephemeral` writes the
+AGENTS page's `## Context` section.
+
 ## Behavior
 
 ### 1. Confirm you're in the second-brain repo
 
-The managed section lives in the second-brain repo's `CLAUDE.md`. Confirm you're
-operating on that repo: the launch-folder cwd has a `config.json` (the
-established-repo signal, per `setup` §0.0), or a `CLAUDE.md` already carrying the
-`<!-- ns2b:context:start -->` marker. If neither is present, **stop** and say so
-plainly — tell the user to run this from their second-brain repo
-(`cd <repo> && claude`), or to run `setup` first if the repo doesn't exist yet.
-Never write the section into an unrelated `CLAUDE.md`.
+Resolve the durability mode (`durability-modes.md`) and pick the home:
+
+- **`durable`** — the launch-folder cwd has a `config.json` (the established-repo
+  signal, per `setup` §0.0), or a `CLAUDE.md` already carrying the
+  `<!-- ns2b:context:start -->` marker. Write to that repo `CLAUDE.md`'s
+  `## Second brain context` section, exactly as before. Never write the section
+  into an unrelated `CLAUDE.md`.
+- **`ephemeral`** — no local config/repo. Resolve config from the AGENTS page
+  (the discovery fallback: `notion-search` the `Second Brain` root →
+  `notion-fetch` its `AGENTS` page → read the fenced config block, per
+  `schema.md`). The saved-context home is that page's `## Context` section.
+- **Neither resolvable** (no repo signal *and* no discoverable AGENTS config):
+  **stop** and say so plainly — tell the user to run this from their second-brain
+  repo (`cd <repo> && claude`) or run `setup` first. Never guess at IDs.
 
 ### 2. Get the fact
 
@@ -64,12 +75,21 @@ between the markers — never rewrite the section wholesale. Dedupe conservative
 skip only a near-exact restatement; when unsure, append. Do not touch
 `config.json`.
 
+**Ephemeral mode:** instead of the repo file, append the bullet to the AGENTS
+page's `## Context` section via `insert_content` (create the section if absent),
+per `saved-context.md`'s ephemeral home. Same append-only, conservative-dedupe
+rules. Do not write any local file.
+
 ### 5. Confirm
 
-Echo the exact bullet you saved and where (`CLAUDE.md` → `## Second brain
-context`). Note that the auto-commit Stop hook will sync it at session end (no
-manual commit needed). If nothing was written because the fact was redirected in
-§3, say which skill to use instead.
+Echo the exact bullet you saved and where — `CLAUDE.md` → `## Second brain
+context` in `durable` mode, or the AGENTS page's `## Context` section in
+`ephemeral` mode. In `durable` mode with `git` present, note that the auto-commit
+Stop hook will sync it at session end (no manual commit needed); if `git` is
+absent (`durability-modes.md`), tell the user to commit the change from their own
+machine instead. In `ephemeral` mode the AGENTS write is already durable in
+Notion — nothing to commit. If nothing was written because the fact was
+redirected in §3, say which skill to use instead.
 
 ### 6. Non-interactive / errors
 
@@ -92,7 +112,17 @@ Smoke test (run inside a live second-brain repo):
 - Hand-add a bullet inside the markers, then `save-context "…"` again
   → the hand-added bullet survives and the new one is appended (no wholesale
     rewrite, no duplicate).
+- **Ephemeral (run live in Cowork — not confirmable from the CLI):** with no
+  local `config.json`/`CLAUDE.md` and a non-`cli` entrypoint, `save-context
+  "…"` resolves config from the AGENTS page and appends the bullet to that
+  page's `## Context` section via `insert_content` (no repo write, no error).
+- **No-git note:** in a durable repo without `git`, the confirm message tells the
+  user to commit from their own machine rather than claiming the Stop hook synced
+  it.
 
 Assertions: after a real save, `CLAUDE.md` has exactly one new bullet inside the
 markers, existing bullets/hand-edits are intact, and `config.json` is unchanged;
-task-like and config-like inputs are redirected rather than written.
+task-like and config-like inputs are redirected rather than written. In
+`ephemeral` mode the bullet lands in the AGENTS `## Context` section (not a
+repo file); when `git` is absent the confirm message degrades the Stop-hook
+claim.
