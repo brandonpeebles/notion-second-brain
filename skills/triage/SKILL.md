@@ -263,7 +263,7 @@ summary in addition to (or instead of) the normal §3 proposals:
   quietly aging in the Inbox without a decision.
 
 This summary is read-only and needs no confirmation. If the review also
-proposes fresh triage for the `New` rows, that proposal still goes through
+proposes fresh triage for the `new`-value rows, that proposal still goes through
 the normal batch-confirm (§4) before anything is written.
 
 ### 8. Errors
