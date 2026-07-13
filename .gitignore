@@ -7,3 +7,6 @@ config.json
 
 # SDD scratch tooling (subagent-driven-development progress/briefs/reports)
 .superpowers/
+
+# SDD scratch specs/plans/handoffs — never shipped plugin content
+docs/

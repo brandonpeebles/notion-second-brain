@@ -37,7 +37,7 @@ filter/write for an unmapped role — never substitute a canonical name):
 | `source` | capture provenance (url or rich_text) |
 
 `due` and `scheduled` are independent and both optional — a DB may have
-either, both, or neither. Example: the home-renovation DB has both (`due:Deadline`,
+either, both, or neither. Example: a home-renovation DB has both (`due:Deadline`,
 `scheduled:Do date`); a personal DB with a single date property maps it to
 `due` and omits `scheduled`.
 
@@ -144,8 +144,8 @@ by construction):
 }
 ```
 
-Shared task DB, adopted from an existing home-renovation-planning database with its
-own names and status set:
+Shared task DB, adopted from an existing shared-project database (e.g. a home
+renovation) with its own names and status set:
 
 ```json
 "shared_spaces":[{ "name":"…","root":"…","members":[…],
