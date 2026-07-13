@@ -554,26 +554,49 @@ to `AGENTS` in §6, none remains — create a fresh one.
 
 - **Found:** adopt it; repair icon/title if needed (`icon: 🏠`, plain title
   `Home`). If it still holds a leftover config block, remove it — config lives
-  on AGENTS now.
+  on AGENTS now. If it lacks the everyday-workflow guide (no `## Everyday
+  workflows` section), **append** the `## Everyday workflows` and `## Setup &
+  maintenance` sections from the example body below — append-only, never
+  clobbering existing human-authored content or rewriting the whole page.
 - **Not found:** create it (`notion-create-pages`, plain title + `icon: 🏠`).
 
-Keep it **simple and human-facing — quick links only**, no config block and no
-scripted views. Example body:
+Keep it **human-facing** — links to the databases plus a short guide to the
+everyday workflows. No config block and no scripted views (config lives on
+AGENTS). Example body:
 
 ```
 # Home
 
-Your second brain.
+Your second brain. Talk to Claude — or run a slash command — to use it.
 
+## Your databases
 - Inbox — where captures land
 - Tasks — what to do
 - Journal — daily notes
 - Wiki — reference
 - Archive — discarded items
+
+## Everyday workflows
+- Capture — drop a task, note, idea, or reference into the Inbox, no
+  decisions. Say "capture …" or run /notion-second-brain:capture.
+- Daily brief — see what's overdue and due today alongside your calendar, and
+  write today's Journal entry. Ask "what's on today?" or run
+  /notion-second-brain:today.
+- Triage the Inbox — turn each captured item into a task, wiki page, or journal
+  entry (or archive it). Say "process my inbox" or run
+  /notion-second-brain:triage.
+- Ask your brain — get a cited answer from your wiki, tasks, and journal. Just
+  ask a question, or run /notion-second-brain:query.
+
+## Setup & maintenance
+- /notion-second-brain:setup — set up or repair this workspace.
+- /notion-second-brain:save-context — remember a workspace convention.
+- /notion-second-brain:cowork-context — run your second brain in Cowork.
 ```
 
-Render the links as Notion page/DB mentions or child-page links. Record
-`home_page` for `config.json`.
+Render the database names under `## Your databases` as Notion page/DB mentions
+(or child-page links); leave the skill names as literal
+`/notion-second-brain:<name>` text. Record `home_page` for `config.json`.
 
 ### 7. Shared spaces (zero or more)
 
@@ -714,7 +737,8 @@ Smoke test (run against a live Notion workspace):
    "Second Brain" root; create/adopt Inbox, Journal, Archive with the
    schema.md schemas — each with a plain title and a native icon (no emoji in
    the title); discover-or-scaffold the personal task DB per §3b; create/adopt
-   the AGENTS page with a fenced config block and a separate simple Home page;
+   the AGENTS page with a fenced config block and a separate Home page (DB links
+   plus a short everyday-workflow guide);
    write config.json with all keys populated.
 3. Expect setup to run the gating test: a single-source filtered+sorted query
    against a scratch DB, and report path = "structured" or "fallback".

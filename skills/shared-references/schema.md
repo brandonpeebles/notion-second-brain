@@ -17,7 +17,7 @@ Icons shown are native icons; titles carry no emoji.
 ├── 📚 Wiki       [wiki]      ← created via "Turn into wiki" (UI only)
 ├── 📓 Journal    [database]
 ├── 🗑 Archive    [database]  ← discard target (no page-trash tool exists)
-├── 🏠 Home       [page]      ← human dashboard (quick links only)
+├── 🏠 Home       [page]      ← human dashboard (DB links + everyday-workflow guide)
 └── 🤖 AGENTS     [page]      ← AGENTS.md-style control file: config block + Notion AI instructions
 ```
 
@@ -190,7 +190,8 @@ candidates, `tasks_personal` instead takes the unresolved-pick shape
 `{"pending_selection": true, "candidates": [...]}` (no `data_source_url`) —
 see `task-db-mapping.md`.
 
-`home_page` is the human dashboard (quick links). `agents_page` is the
+`home_page` is the human dashboard (DB links plus a short everyday-workflow
+guide). `agents_page` is the
 AGENTS.md-style control file that carries the fenced config block and doubles as
 the workspace's Notion AI instructions page — it is the discovery anchor (see
 below). `journal` extends the original design's example (needed by `today`).
