@@ -83,8 +83,9 @@ clipboard step was skipped.
 
 Then tell the user to paste it into their Cowork project's **instructions**
 field, and that this paste is manual. **Do not** write the block into the repo
-as a committed file — it's a point-in-time compile of `config.json` +
-`CLAUDE.md`, and a committed copy would silently go stale. Regenerate on demand
+as a committed file — it's a pointer to live workspace state on the AGENTS
+page, and a committed copy would silently go stale if those IDs change.
+Regenerate on demand
 instead. (The block carries workspace IDs — same private posture as
 `config.json`; it's for the user's own Cowork project.)
 
