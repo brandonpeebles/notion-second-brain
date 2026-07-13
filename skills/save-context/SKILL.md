@@ -1,15 +1,16 @@
 ---
 name: save-context
-description: Use when the user wants to record durable, workspace-specific context about their Notion second-brain setup — a naming or tagging convention, a custom property worth weighing, a workspace quirk, a partner working preference — so future sessions honor it. Saves a terse bullet to the `## Second brain context` section of the private second-brain repo's CLAUDE.md. Use this whenever the user says to "remember", "note", "keep in mind", or "save" something about how their Notion workspace is organized — as opposed to capturing a task/note (that's `capture`) or changing structured config like timezone or task-DB mappings (that's `setup`).
+description: Use when the user wants to record durable, workspace-specific context about their Notion second-brain setup — a naming or tagging convention, a custom property worth weighing, a workspace quirk, a partner working preference — so future sessions honor it. Saves a terse bullet to the private second-brain repo's CLAUDE.md (`## Second brain context`) in durable mode, or to the Notion AGENTS page's `## Context` section in ephemeral mode (e.g. Cowork). Use this whenever the user says to "remember", "note", "keep in mind", or "save" something about how their Notion workspace is organized — as opposed to capturing a task/note (that's `capture`) or changing structured config like timezone or task-DB mappings (that's `setup`).
 ---
 
 # save-context
 
 Record a durable fact about the user's Notion setup so every future session
-starts already knowing it. The fact lives as one bullet in the
-`## Second brain context` section of the **user's private second-brain repo
-`CLAUDE.md`** — the single source of truth for saved context. This skill only
-ever edits that one repo file; it never touches `config.json` or Notion.
+starts already knowing it. The fact lives as one bullet in a mode-aware home
+(see `../shared-references/durability-modes.md`): the **user's private
+second-brain repo `CLAUDE.md`** `## Second brain context` section in `durable`
+mode, or the AGENTS page's `## Context` section in `ephemeral` mode. Either way
+this skill only records saved context; it never touches `config.json`.
 
 Consult `../shared-references/saved-context.md` for the managed section, the
 marker pair, what qualifies vs. what to redirect, and the append-only
