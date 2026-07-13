@@ -23,8 +23,10 @@ single deterministic `notion-fetch` of the AGENTS page is the whole point.
 
 Consult `../shared-references/schema.md` for the `config.json` block shape and the
 discovery fallback (reading config from the AGENTS page when there's no local
-file). Consult `../shared-references/saved-context.md` for the
-`## Second brain context` section this reads.
+file). Consult `../shared-references/saved-context.md` for the saved-context homes the
+pointer directs the session to read — `## Second brain context` in the repo
+`CLAUDE.md` when `durable`, the AGENTS page's `## Context` section when
+`ephemeral`.
 
 ## Behavior
 
@@ -37,7 +39,7 @@ and read the fenced ```json config block (per `schema.md`). If neither resolves,
 **fail loudly**: say the second brain isn't set up yet, point the user at
 `setup`, and **stop**. Never guess at IDs.
 
-### 2. Read saved context
+### 2. Saved context (no longer inlined)
 
 No longer inlined. Saved context lives on the AGENTS page: in `ephemeral` mode in
 that page's `## Context` section, in `durable` mode in the repo `CLAUDE.md` the

@@ -104,13 +104,18 @@ auto-committed on several machines), so concurrent sessions rarely conflict.
 
 ## Boundaries, privacy, and commits
 
-- **Writes `CLAUDE.md` only — never `config.json`.** Touching config could desync
-  the `config.json` ↔ AGENTS-block pair; saved context is a separate channel.
+- **Never touches `config.json`.** Touching config could desync the
+  `config.json` ↔ AGENTS-block pair; saved context is a separate channel (its
+  home is the repo `CLAUDE.md` in `durable` mode, the AGENTS `## Context` section
+  in `ephemeral` mode).
 - In `durable` mode the user's **private** second-brain repo is the home; in
   `ephemeral` mode the AGENTS page's `## Context` section is. **Never** write
   saved context into the public plugin repo or any tracked plugin file.
-- **No new commit logic.** The auto-commit Stop hook plus the repo's
-  commit-frequently policy pick up the `CLAUDE.md` change at session end.
+- **No new commit logic.** In `durable` mode with `git`, the auto-commit Stop
+  hook plus the repo's commit-frequently policy pick up the `CLAUDE.md` change at
+  session end; if `git` is absent the user commits from their own machine (see
+  `durability-modes.md`). In `ephemeral` mode the AGENTS write is already durable
+  in Notion — nothing to commit.
 
 ## Repair (owned by `setup`)
 

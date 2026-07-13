@@ -24,7 +24,7 @@ AGENTS page's `## Context` section.
 
 ## Behavior
 
-### 1. Confirm you're in the second-brain repo
+### 1. Resolve the durability mode and pick the home
 
 Resolve the durability mode (`durability-modes.md`) and pick the home:
 

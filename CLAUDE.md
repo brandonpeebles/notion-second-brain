@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A **Claude Code plugin** whose entire product is prompt/instruction Markdown — there is no application code, no build step, no test runner, no lint. The plugin runs a "second brain" on Notion (capture, daily brief, inbox triage, cited query) entirely through the built-in **Notion connector** (hosted MCP, `notion-*` tools). No MCP config files or hooks are wired up by the plugin.
 
-Tested surface is the **Claude Code CLI with the claude.ai Notion connector**; other surfaces (Cowork, claude.ai chat/mobile, cloud, Routines) are supported in principle but unverified (see README "Install").
+Tested surface is the **Claude Code CLI with the claude.ai Notion connector**; other surfaces (Cowork, claude.ai chat/mobile, cloud, Routines) are supported in principle but largely unverified (see README "Install").
 
 ## Layout
 
