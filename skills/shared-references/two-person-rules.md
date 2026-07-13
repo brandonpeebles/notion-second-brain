@@ -1,6 +1,6 @@
 # Two-Person Conventions
 
-Written generically. Never hard-code personal names — resolve "your partner" from
+Written generically. Never hard-code personal names — resolve from
 the operating space's `members` list in config.
 
 - **Shared tasks always get an Assignee.** A task in a shared space with no
