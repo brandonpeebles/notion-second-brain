@@ -61,9 +61,12 @@ On success, record the current user's id and display name — these become
 **Runs after §1** (it needs the Notion display name) and **before §2**.
 
 **First, resolve the durability mode** using the detection ladder in
-`durability-modes.md`. Apply the demotion overlay before doing anything git:
-even in a `durable` result, if the cwd is not writable or `git` is unavailable,
-drop to `ephemeral` for this run.
+`durability-modes.md`, then apply that file's **demotion overlay** (it may only
+*demote*). The overlay guards only the Step 0 git/GitHub **bootstrap**: on the
+fresh-bootstrap path, if the cwd is not writable or `git` is unavailable, drop to
+`ephemeral` for this run. An **adopt** run (existing `config.json` in cwd, §0.0)
+is *not* demoted for a missing `git` — it stays `durable`, and §9's no-git
+degradation handles the commit.
 
 - **`ephemeral` mode:** **skip this entire Step 0** — no git/GitHub bootstrap,
   no `.claude/settings.json`, no auto-commit hook, no committed `config.json`,
@@ -299,14 +302,17 @@ AGENTS block is the only place the mapping survives between sessions, and
 reading it there is what prevents re-prompting the full disambiguation flow
 on every run.
 
-**Ensure the `CLAUDE.md` context section.** In the second-brain repo's
-`CLAUDE.md`, ensure exactly one `## Second brain context` section with an intact
-`<!-- ns2b:context:start -->`/`<!-- ns2b:context:end -->` marker pair exists —
-create it (after the `## Second brain repo` block) if missing, and collapse any
-duplicates into one, preserving every bullet, per `saved-context.md`. Step 0.3
-seeds it on a fresh bootstrap; this runs on every adopt/re-run so an older repo
-(cloned before this section existed, or drifted by a merge) gets it back. It
-edits that repo file only — never `config.json` or Notion.
+**Ensure the `CLAUDE.md` context section (`durable` mode only).** In the
+second-brain repo's `CLAUDE.md`, ensure exactly one `## Second brain context`
+section with an intact `<!-- ns2b:context:start -->`/`<!-- ns2b:context:end -->`
+marker pair exists — create it (after the `## Second brain repo` block) if
+missing, and collapse any duplicates into one, preserving every bullet, per
+`saved-context.md`. Step 0.3 seeds it on a fresh bootstrap; this runs on every
+adopt/re-run so an older repo (cloned before this section existed, or drifted by
+a merge) gets it back. It edits that repo file only — never `config.json` or
+Notion. **In `ephemeral` mode there is no repo `CLAUDE.md`:** skip this entirely;
+saved context lives in the AGENTS page's `## Context` section (`saved-context.md`),
+created on first write.
 
 **Reconcile ephemeral saved-context on durable adopt.** When this is a `durable`
 adopt and the AGENTS page carries a `## Context` section (the user had run
@@ -319,7 +325,10 @@ mirror. Skip entirely in `ephemeral` mode (there is no repo `CLAUDE.md`).
 workspace-specific fact during this interactive run — a naming/tagging
 convention, a custom property worth weighing, a partner working preference, the
 kind of thing `saved-context.md` describes — offer to persist it, and write the
-bullet only on their OK. Never in Routine/non-interactive mode (§10). Structured
+bullet only on their OK, to its mode-appropriate home (`CLAUDE.md`'s `## Second
+brain context` in `durable` mode, the AGENTS page's `## Context` section in
+`ephemeral` mode, per `saved-context.md`). Never in Routine/non-interactive mode
+(§10). Structured
 config (timezone, DB mappings, member IDs) is **not** context — it belongs in
 `config.json`, so keep it there rather than in a context bullet.
 
