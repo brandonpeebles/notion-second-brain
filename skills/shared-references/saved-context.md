@@ -1,14 +1,20 @@
 # Saved Context
 
 Durable, workspace-specific context about the user's Notion setup — the facts a
-skill would otherwise have to relearn every session — lives in a managed section
-of the **user's private second-brain repo `CLAUDE.md`**. This is the single
-source of truth for that context; `save-context` writes it, `setup` seeds and
-repairs it, and `cowork-context` reads it. It is deliberately **not** mirrored
-into Notion: the AGENTS page's config block is the durable copy of machine
-*state* (`config.json`), consumed by discovery; saved context is soft human prose
-with no runtime consumer other than the local session that reads `CLAUDE.md`, so
-a Notion mirror would add a sync obligation and drift risk for nothing.
+skill would otherwise have to relearn every session — has a **mode-aware home**
+(see `durability-modes.md`):
+
+- **`durable` mode** → a managed section of the user's private second-brain repo
+  `CLAUDE.md`. Exactly as before: `save-context` writes it, `setup` seeds and
+  repairs it, `cowork-context` reads it.
+- **`ephemeral` mode** (Cowork with no attached repo, cloud/Routine) → there is
+  no repo `CLAUDE.md`, so context lives in an append-only `## Context` section on
+  the Notion **AGENTS page**, written via `insert_content`.
+
+One home per mode — **not** a live mirror. The durable and ephemeral homes are
+reconciled once, at durable adopt (below), rather than kept in continuous sync;
+a continuous Notion↔repo mirror was rejected because it adds a sync obligation
+and drift risk with no runtime consumer.
 
 ## The managed section
 
@@ -27,6 +33,34 @@ its body delimited by a start/end marker pair:
 
 Everything between `<!-- ns2b:context:start -->` and `<!-- ns2b:context:end -->`
 is user-owned. Bullets are terse — one fact each.
+
+## The ephemeral home (AGENTS `## Context`)
+
+In `ephemeral` mode there is no repo `CLAUDE.md`. Saved context lives in a
+`## Context` section on the **AGENTS page** (the same page that carries the
+fenced config block), appended via `insert_content` — the concurrency-safe write
+`setup` §6 already mandates for the config block:
+
+```markdown
+## Context
+- Wiki uses a `Status = Evergreen` tag for pages that never expire.
+- Inbox has a custom `Energy` select worth weighing during triage.
+```
+
+Same rules as the durable home: terse bullets, one fact each; append-only;
+conservative dedupe. Read back by fetching the AGENTS page. No marker pair is
+needed — the `## Context` heading delimits it, and the whole page is
+plugin-managed.
+
+## Reconciliation at durable adopt
+
+When `setup` first adopts into a `durable` repo and an AGENTS `## Context`
+section exists (the user had been running ephemeral, then attached a repo),
+append those bullets into `CLAUDE.md`'s `## Second brain context` section
+(conservative dedupe, preserve hand-edits) so the durable home is complete. This
+is a one-time reconcile, not an ongoing mirror. **Known minor edge (accepted for
+v1):** a user who bounces durable→ephemeral→durable may add a bullet in one home
+that the other mode doesn't see until the next adopt-reconcile.
 
 ## What qualifies (and what does not)
 
@@ -72,8 +106,9 @@ auto-committed on several machines), so concurrent sessions rarely conflict.
 
 - **Writes `CLAUDE.md` only — never `config.json`.** Touching config could desync
   the `config.json` ↔ AGENTS-block pair; saved context is a separate channel.
-- The user's **private** second-brain repo is the correct home for these facts.
-  **Never** write them into the public plugin repo or any tracked plugin file.
+- In `durable` mode the user's **private** second-brain repo is the home; in
+  `ephemeral` mode the AGENTS page's `## Context` section is. **Never** write
+  saved context into the public plugin repo or any tracked plugin file.
 - **No new commit logic.** The auto-commit Stop hook plus the repo's
   commit-frequently policy pick up the `CLAUDE.md` change at session end.
 
