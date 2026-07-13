@@ -6,7 +6,7 @@
     {
       "name": "notion-second-brain",
       "source": "./",
-      "description": "Create and maintain a self-organizing, optionally-shared second brain in Notion, based on Karpathy's LLM Wiki pattern. Adapts to your existing task databases (maps to their schema, never modifies them)."
+      "description": "Create and maintain a self-organizing, optionally-shared second brain in Notion, based on Karpathy's LLM Wiki pattern."
     }
   ]
 }
