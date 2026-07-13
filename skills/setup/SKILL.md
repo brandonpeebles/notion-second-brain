@@ -30,6 +30,9 @@ and `../shared-references/query-plan-gating.md` for the plan-gate error
 signature and per-tier gate map (used by the query-gating test, §8). Consult
 `../shared-references/saved-context.md` for the managed `## Second brain context`
 section in the user-repo `CLAUDE.md` that this skill seeds (§0.3) and repairs (§2).
+Consult `../shared-references/durability-modes.md` for the durability-mode
+detection ladder, the demotion overlay, and the no-git degradation rule this
+skill branches on (§0, §9).
 `config.json`'s **keys** and the **internal DBs'** (Raw/Journal/Archive)
 property names stay canonical — use them exactly as `schema.md` defines them,
 do not paraphrase or rename. **Task-DB property names and status values are
@@ -55,13 +58,26 @@ On success, record the current user's id and display name — these become
 
 ### 0. Establish the local repo (bootstrap)
 
-**Runs after §1** (it needs the Notion display name) and **before §2**. On a
-fresh machine, `setup` first gives the workspace a durable home: a dedicated
-**private GitHub repo** that becomes the launch folder. `config.json` lives
-**committed** inside that repo — safe because the repo is private — so remote
-sessions (Cowork, Claude Code on the web) can read the live config from the
-clone. A commit-frequently policy plus an auto-commit Stop hook keep the remote
-copy fresh.
+**Runs after §1** (it needs the Notion display name) and **before §2**.
+
+**First, resolve the durability mode** using the detection ladder in
+`durability-modes.md`. Apply the demotion overlay before doing anything git:
+even in a `durable` result, if the cwd is not writable or `git` is unavailable,
+drop to `ephemeral` for this run.
+
+- **`ephemeral` mode:** **skip this entire Step 0** — no git/GitHub bootstrap,
+  no `.claude/settings.json`, no auto-commit hook, no committed `config.json`,
+  and (§9) **no local `config.json` at all**. State plainly: "No durable repo
+  here — your config will live on the AGENTS page in Notion." Then continue at
+  §2. Connector verify (§1), live discovery, DB scaffold/adopt, task-DB mapping,
+  the gating test, and idempotency all run **identically** to the durable path;
+  the AGENTS page (§6) is the sole durable config store.
+- **`durable` mode:** run Step 0 as below. On a fresh machine, `setup` gives the
+  workspace a durable home: a dedicated **private GitHub repo** that becomes the
+  launch folder. `config.json` lives **committed** inside that repo — safe
+  because the repo is private — so remote sessions (Cowork, Claude Code on the
+  web) can read the live config from the clone. A commit-frequently policy plus
+  an auto-commit Stop hook keep the remote copy fresh.
 
 **0.0 Detect state.** If the current working directory already has a
 `config.json`, or a `.claude/settings.json` that enables this plugin, you are
@@ -291,6 +307,13 @@ duplicates into one, preserving every bullet, per `saved-context.md`. Step 0.3
 seeds it on a fresh bootstrap; this runs on every adopt/re-run so an older repo
 (cloned before this section existed, or drifted by a merge) gets it back. It
 edits that repo file only — never `config.json` or Notion.
+
+**Reconcile ephemeral saved-context on durable adopt.** When this is a `durable`
+adopt and the AGENTS page carries a `## Context` section (the user had run
+`ephemeral` before attaching this repo), append its bullets into `CLAUDE.md`'s
+`## Second brain context` section per `saved-context.md`'s reconciliation rule —
+conservative dedupe, hand-edits preserved. One-time reconcile, not an ongoing
+mirror. Skip entirely in `ephemeral` mode (there is no repo `CLAUDE.md`).
 
 **Offer to save context you learn.** When the user reveals a durable,
 workspace-specific fact during this interactive run — a naming/tagging
@@ -688,9 +711,11 @@ query-dependent skills, not written into `config.json`'s schema.
 
 ### 9. Write config.json
 
-Write `config.json` — on a bootstrap run to the **Step 0 repo's absolute path**
-(`<location>/config.json`), on an adopt run (Step 0 skipped) to the
-launch-folder cwd as before — with every key defined in
+Write `config.json` only in `durable` mode — on a bootstrap run to the **Step 0
+repo's absolute path** (`<location>/config.json`), on an adopt run to the
+launch-folder cwd as before. In `ephemeral` mode, **do not write a local
+`config.json` at all** (`durability-modes.md`); the AGENTS block below is the
+sole store. Either way, populate every key defined in
 `schema.md`: `user`, `notion_user_id`, `second_brain_root`, `home_page`,
 `agents_page`, `wiki` (`database_id`, `data_source_url`),
 `inbox` (`data_source_url`, plus `triage_values` when recorded in §3),
@@ -720,11 +745,12 @@ and report it as a pending manual step (§10) rather than guessing one.
 Mirror the identical JSON into the AGENTS page's fenced config block (§6, via
 `insert_content`).
 
-`config.json` **is committed** in the user's *private* second-brain repo —
-that is how remote sessions read it. On an **adopt** run the auto-commit Stop
-hook (Step 0.3) picks it up automatically at session end. On a **bootstrap**
-run, commit and push it immediately instead of waiting on the hook — this
-run's own Stop hook can't fire against the new repo yet (see §0.6):
+`config.json` **is committed** in the user's *private* second-brain repo — that
+is how remote sessions read it. On an **adopt** run in `durable` mode with `git`
+present, the auto-commit Stop hook (Step 0.3) picks it up automatically at
+session end. On a **bootstrap** run, commit and push it immediately instead of
+waiting on the hook — this run's own Stop hook can't fire against the new repo
+yet (see §0.6):
 
 ```bash
 git -C "<location>" add -A
@@ -732,9 +758,16 @@ git -C "<location>" commit -m "chore: add config.json"
 git -C "<location>" push
 ```
 
-It is still **never** committed to the public **plugin** repo, and this skill
-still never writes personal data (names, IDs, workspace names) into the
-plugin's own output files.
+**No-git degradation (`durability-modes.md`):** if the mode is `durable` but
+`git` is unavailable in this session (e.g. Cowork with an attached repo but no
+`git` in the VM), skip the commit/push and the Stop-hook assumption — write the
+file, then tell the user "edited in your attached folder — commit from your own
+machine later," and continue. Never error out over a missing `git`. In
+`ephemeral` mode there is no local file and nothing to commit.
+
+`config.json` is still **never** committed to the public **plugin** repo, and
+this skill still never writes personal data (names, IDs, workspace names) into
+the plugin's own output files.
 
 ### 10. Idempotency + Routine mode
 
@@ -783,6 +816,21 @@ Smoke test (run against a live Notion workspace):
    page), then verify each after the user confirms.
 5. Re-run setup on the now-populated folder → it changes nothing (idempotent) and
    reports "all present".
+6. **Mode resolution (durable/CLI):** with `CLAUDE_CODE_ENTRYPOINT=cli` or a
+   valid `config.json` in cwd, setup resolves `durable` and runs Step 0 /
+   adopt exactly as items 1–5. Unchanged.
+7. **Ephemeral run (run live in Cowork — cannot be confirmed from the CLI):**
+   with no cwd `config.json` and a non-`cli` entrypoint (or `mnt/.local-plugins`
+   present), setup resolves `ephemeral`, **skips Step 0**, writes **no** local
+   `config.json`, persists the full config only into the AGENTS page's fenced
+   block, states "your config lives on the AGENTS page," and a later ephemeral
+   session reads it back and skips re-scaffolding + re-disambiguation.
+8. **No-git degradation:** in a `durable` cwd where `git` is absent, §9 writes
+   `config.json` and tells the user to commit from their own machine instead of
+   erroring.
+9. **Reconcile on adopt:** adopting into a durable repo when an AGENTS
+   `## Context` section exists appends those bullets into `CLAUDE.md`'s
+   `## Second brain context` (deduped, hand-edits preserved).
 Assertions: config.json exists with non-empty second_brain_root, inbox
 (`data_source_url`, plus `triage_values` and `view_url` when setup recorded
 them per §3), tasks_personal, journal, archive, `home_page`, and
@@ -803,6 +851,10 @@ Step 0. The bootstrapped `CLAUDE.md` carries a `## Second brain context` section
 with the `ns2b:context` marker pair; a re-run against a repo whose `CLAUDE.md`
 is missing that section recreates it, and one with a duplicated section collapses
 it to a single section preserving every bullet (§2).
+In `ephemeral` mode no local `config.json` is written and the AGENTS block is the
+sole config store; a `durable`-but-gitless run degrades commits with guidance
+rather than failing; a durable adopt reconciles any AGENTS `## Context` bullets
+into `CLAUDE.md`.
 
 ## Errors
 
