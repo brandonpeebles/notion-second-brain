@@ -32,7 +32,9 @@ signature and per-tier gate map (used by the query-gating test, §8). Consult
 section in the user-repo `CLAUDE.md` that this skill seeds (§0.3) and repairs (§2).
 Consult `../shared-references/durability-modes.md` for the durability-mode
 detection ladder, the demotion overlay, and the no-git degradation rule this
-skill branches on (§0, §9).
+skill branches on (§0, §9). Consult `../shared-references/email.md` for the
+email-tool detection convention and the default `email` config block this
+skill seeds (§9).
 `config.json`'s **keys** and the **internal DBs'** (Raw/Journal/Archive)
 property names stay canonical — use them exactly as `schema.md` defines them,
 do not paraphrase or rename. **Task-DB property names and status values are
@@ -730,7 +732,8 @@ sole store. Either way, populate every key defined in
 `inbox` (`data_source_url`, plus `triage_values` when recorded in §3),
 `tasks_personal`, `journal`, `archive` (each with `data_source_url`, except
 `tasks_personal` when unresolved — see below), `shared_spaces` (array,
-possibly empty), and `preferences` (`timezone`, `calendar_tool`). **Keep
+possibly empty), and `preferences` (`timezone`, `calendar_tool`, `email_tool`),
+plus the optional `email` block. **Keep
 `timezone` in the key set** — it must not be dropped. Use the exact key
 names from `schema.md` — do not add, rename, or drop keys. `tasks_personal`
 and every `shared_spaces[].tasks` now also carry `properties` +
@@ -750,6 +753,18 @@ adopted config already has — **never** fall back to the running session's
 clock, which is UTC in cloud/Routine/Cowork sessions (`task-db-mapping.md`).
 If there is no adopted config and no way to prompt, leave `timezone` unset
 and report it as a pending manual step (§10) rather than guessing one.
+
+**Detect the email tool and seed the `email` block.** Resolve the session's email
+tool per `email.md`'s **Email-tool abstraction**: if a Gmail connector
+(`mcp__claude_ai_Gmail__*`) is available, record `preferences.email_tool` (keep it
+`null` to auto-detect, or pin `"gmail"`); if none is available, leave it `null` and
+note that email scanning will be omitted until a tool is connected. If the adopted
+config has no `email` block, write the default block from `schema.md`
+(`scan_query:null`, `unread_only:false`, `important_only:false`, `window_days_cap:3`,
+`auto_extract:true`, `wiki_match:false`, empty `watch`/`ignore`). This is additive —
+**never overwrite** an existing `email` block a user has customized. Do **not** create
+the AGENTS *Agent state* block here; it is created lazily on the first email scan
+(`email.md`), so existing workspaces need no re-`setup`.
 
 Mirror the identical JSON into the AGENTS page's fenced config block (§6, via
 `insert_content`).
@@ -816,7 +831,8 @@ Smoke test (run against a live Notion workspace):
    resolved `new` Triage value; discover-or-scaffold the personal task DB per
    §3b; create/adopt the AGENTS page with a fenced config block and a separate
    Home page (DB links plus a short everyday-workflow guide);
-   write config.json with all keys populated.
+   write config.json with all keys populated, including `preferences.email_tool`
+   and the default `email` block (when absent).
 3. Expect setup to run the gating test: a single-source filtered+sorted query
    against a scratch DB, and report path = "structured" or "fallback".
 4. Expect setup to surface the manual UI steps (create `Wiki` → "Turn into
@@ -864,6 +880,10 @@ In `ephemeral` mode no local `config.json` is written and the AGENTS block is th
 sole config store; a `durable`-but-gitless run degrades commits with guidance
 rather than failing; a durable adopt reconciles any AGENTS `## Context` bullets
 into `CLAUDE.md`.
+The written config carries `preferences.email_tool` and, when it was absent, the
+default `email` block (existing customized `email` blocks are left unchanged); `setup`
+does **not** create the AGENTS `## Agent state` block (it is created lazily on the
+first email scan).
 
 ## Errors
 
