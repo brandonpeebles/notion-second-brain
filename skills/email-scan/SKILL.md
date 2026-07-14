@@ -1,9 +1,9 @@
 ---
-name: email
+name: email-scan
 description: Use when the user wants to scan their inbox for anything new worth knowing, or to pull a specific email into their second brain — "scan my recent emails", "anything new in my inbox I should know about?", "pull that Delta confirmation into my second brain", "save the landlord's email about the lease". Surfaces actionable/notable mail and extracts emails into Raw.
 ---
 
-# email
+# email-scan
 
 Interactive entry point for email scanning and extraction. Two modes: **scan-now**
 (classify the recent window, surface New / Reminders, auto-extract high-confidence
@@ -95,7 +95,7 @@ Smoke test (run against a live Notion + Gmail workspace):
 - **Scan-now:** seed (a) an unread actionable email — a direct ask with a deadline,
   (b) a read email you have **not** replied to that looks important, (c) a read email
   you **have** replied to (has `SENT`), (d) a Promotions email, and (e) a
-  booking/receipt-style confirmation. Run `email` scan-now.
+  booking/receipt-style confirmation. Run `email-scan` scan-now.
   Assert: (a) appears under **New**; (b) appears under **Reminders (read, no reply)**;
   (c) is suppressed (handled); (d) never appears; (e) creates a Raw row (`Source` =
   Gmail thread link, `Triage` = the resolved `new` value, key facts + any attachment
@@ -108,7 +108,7 @@ Smoke test (run against a live Notion + Gmail workspace):
 - **Extract-this-email:** reference a specific email by description ("the Delta
   confirmation"); assert the skill locates it, confirms the match, then creates the
   Raw row — and does **not** advance `last_scan_ts`.
-- **Graceful stop:** with no email tool available, `email` says the connector isn't
+- **Graceful stop:** with no email tool available, `email-scan` says the connector isn't
   available and points at `/mcp` (no fake scan).
 - **Timezone safety:** with a non-UTC `preferences.timezone`, the Gmail query uses
   epoch `after:` and human output renders in the preference timezone; the stored

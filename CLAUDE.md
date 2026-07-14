@@ -11,7 +11,7 @@ Tested surface is the **Claude Code CLI with the claude.ai Notion connector**; o
 ## Layout
 
 - `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` — plugin + single-plugin marketplace manifests.
-- `skills/<name>/SKILL.md` — the eight skills: `setup`, `capture`, `today`, `triage`, `query`, `save-context`, `cowork-context`, `email`. Each has YAML frontmatter (`name`, `description`) and a `## Behavior` section of numbered steps, plus (except triage/query where inline) a `## Smoke test` block. `save-context` maintains a `## Second brain context` section in the *user-repo* `CLAUDE.md`; `cowork-context` emits a thin pointer to the AGENTS page (not a config dump) for pasting into Cowork.
+- `skills/<name>/SKILL.md` — the eight skills: `setup`, `capture`, `today`, `triage`, `query`, `save-context`, `cowork-context`, `email-scan`. Each has YAML frontmatter (`name`, `description`) and a `## Behavior` section of numbered steps, plus (except triage/query where inline) a `## Smoke test` block. `save-context` maintains a `## Second brain context` section in the *user-repo* `CLAUDE.md`; `cowork-context` emits a thin pointer to the AGENTS page (not a config dump) for pasting into Cowork.
 - `skills/shared-references/*.md` — the canonical contracts every skill imports by relative path. **These are the single source of truth; skills reference them and must not duplicate their content.**
 - `config.json` at repo root is a **local sample only** — the real one is written per-user into the launch-folder cwd and is gitignored (`config.json`, `**/config.json`). It holds workspace/user Notion IDs; never commit a real one and never echo those IDs into any tracked file.
 - `.superpowers/` and `docs/` hold SDD scratch/specs (gitignored / handoff docs), not shipped plugin content.
@@ -29,7 +29,7 @@ Tested surface is the **Claude Code CLI with the claude.ai Notion connector**; o
   (`preferences.email_tool`), the timezone-safe scan window + the AGENTS *Agent
   state* block (`last_scan_ts`, state not config), scope filters, the two-stage
   classify pipeline, the extraction → Raw shape (attachments as pointers), dedup, and
-  the 📧 rendering convention. `today` and `email` import it and must not restate it.
+  the 📧 rendering convention. `today` and `email-scan` import it and must not restate it.
 
 ## Non-obvious invariants (violating these is a bug)
 
