@@ -11,7 +11,7 @@ Tested surface is the **Claude Code CLI with the claude.ai Notion connector**; o
 ## Layout
 
 - `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` — plugin + single-plugin marketplace manifests.
-- `skills/<name>/SKILL.md` — the seven skills: `setup`, `capture`, `today`, `triage`, `query`, `save-context`, `cowork-context`. Each has YAML frontmatter (`name`, `description`) and a `## Behavior` section of numbered steps, plus (except triage/query where inline) a `## Smoke test` block. `save-context` maintains a `## Second brain context` section in the *user-repo* `CLAUDE.md`; `cowork-context` emits a thin pointer to the AGENTS page (not a config dump) for pasting into Cowork.
+- `skills/<name>/SKILL.md` — the eight skills: `setup`, `capture`, `today`, `triage`, `query`, `save-context`, `cowork-context`, `email`. Each has YAML frontmatter (`name`, `description`) and a `## Behavior` section of numbered steps, plus (except triage/query where inline) a `## Smoke test` block. `save-context` maintains a `## Second brain context` section in the *user-repo* `CLAUDE.md`; `cowork-context` emits a thin pointer to the AGENTS page (not a config dump) for pasting into Cowork.
 - `skills/shared-references/*.md` — the canonical contracts every skill imports by relative path. **These are the single source of truth; skills reference them and must not duplicate their content.**
 - `config.json` at repo root is a **local sample only** — the real one is written per-user into the launch-folder cwd and is gitignored (`config.json`, `**/config.json`). It holds workspace/user Notion IDs; never commit a real one and never echo those IDs into any tracked file.
 - `.superpowers/` and `docs/` hold SDD scratch/specs (gitignored / handoff docs), not shipped plugin content.
@@ -25,6 +25,11 @@ Tested surface is the **Claude Code CLI with the claude.ai Notion connector**; o
 - `two-person-rules.md` — shared-space (partner) routing, assignee, and Waiting semantics.
 - `saved-context.md` — the managed `## Second brain context` section in the *user-repo* `CLAUDE.md`: what qualifies as saved context vs. config, the marker pair, and the append-only create/update/repair protocol (used by `save-context`, `setup`, `cowork-context`).
 - `durability-modes.md` — the `durable`/`ephemeral` detection ladder, the demotion overlay, the no-git degradation rule, and the mode-dependent config-sync invariant. `setup`/`save-context`/`cowork-context` branch on it.
+- `email.md` — the email scan/extract contract: Gmail-tool abstraction
+  (`preferences.email_tool`), the timezone-safe scan window + the AGENTS *Agent
+  state* block (`last_scan_ts`, state not config), scope filters, the two-stage
+  classify pipeline, the extraction → Raw shape (attachments as pointers), dedup, and
+  the 📧 rendering convention. `today` and `email` import it and must not restate it.
 
 ## Non-obvious invariants (violating these is a bug)
 
@@ -34,6 +39,20 @@ Tested surface is the **Claude Code CLI with the claude.ai Notion connector**; o
 - **Single-source queries only.** `notion-query-data-sources` takes one data source; to span personal + shared DBs, query each and merge in the skill. Never a cross-data-source call.
 - **Dual-path querying.** Primary: structured `notion-query-data-sources`. The plan gate surfaces as a **thrown `400` `APIResponseError`** (not an inspectable payload) — catch it, detect via `code === "validation_error"` + plan-gate language / `source=mcp_tool_upsell`, fall back to scoped `notion-search` + `notion-fetch`, and surface the upgrade-vs-fallback decision rather than silently picking. Distinguish from a generic 400 (a real bug — don't swallow it as "the paywall").
 - **Timezone comes from `preferences.timezone`, never the session clock** (which is UTC in cloud/Routine/Cowork).
+- **Email is read-only except the deliberate creation of a Raw row.** No labels, no
+  mark-as-read, no archiving — no mailbox mutation of any kind (see `email.md`).
+- **`last_scan_ts` is state, not config** — the one carve-out from the
+  config↔AGENTS-block sync rule. It lives **only** in the AGENTS page's separate
+  `## Agent state` fenced block (never in `config.json`, never in the config block),
+  in both durability modes. Created lazily on the first scan, not by `setup`.
+- **`last_scan_ts` is an absolute UTC instant.** Timezone enters only at Gmail-query
+  conversion (epoch `after:<epoch>`) and human display (`preferences.timezone`) —
+  never in storage or comparison. The gap guard is an instant−instant duration, never
+  a date-string diff.
+- **Email classification runs on cheap metadata first;** full bodies (`get_thread`
+  `FULL_CONTENT`) are fetched only for surfaced/extracted candidates. Attachments are
+  **pointers, not embeds** (the connector has no attachment-download tool). Reply-state
+  = the `SENT` label on any thread message (identity-agnostic).
 - **Native Notion icons, plain titles.** Never embed an emoji in a page/DB title — an emoji in the title *and* the icon slot renders two icons. On adopt, repair: set native icon, strip leading emoji.
 - **No page-trash tool.** Discard by moving rows into the `Archive` DB with `notion-move-pages`.
 - **Wikis, the Waiting status option, and the Notion AI instructions page are UI-only** — cannot be created/set via MCP. `setup` guides the user and verifies, or reports them as pending in non-interactive/Routine mode.
