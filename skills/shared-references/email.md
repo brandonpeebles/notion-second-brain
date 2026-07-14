@@ -1,6 +1,6 @@
 # Email scan & extract — contract
 
-Single source of truth for how `today` and the `email` skill reach Gmail, scan a
+Single source of truth for how `today` and the `email-scan` skill reach Gmail, scan a
 time window, classify threads, surface them, and extract emails into Raw. Both
 skills **point here** and must not restate this contract (repo shared-ref
 convention). Config **shape** lives in `schema.md`; this file owns the
@@ -13,7 +13,7 @@ task/project relevance uses the task query `today` already runs (see below).
   Gmail connector (`mcp__claude_ai_Gmail__*`) in the session; `"gmail"` → pin it.
 - **Graceful omit.** If no email tool is set in config **and** none is available in
   the session, omit the 📧 section / decline the scan — a complete result, never an
-  error (same rule as `today`'s Calendar section). The interactive `email` skill
+  error (same rule as `today`'s Calendar section). The interactive `email-scan` skill
   says the connector isn't available and points at `/mcp`.
 - **Read-only except the deliberate creation of a Raw row.** No labels, no
   mark-as-read, no archiving — no mailbox mutation of any kind. The only write email
@@ -59,7 +59,7 @@ task/project relevance uses the task query `today` already runs (see below).
   rewrite the fenced block in place with `update_content`; create it with
   `insert_content` under an `## Agent state` heading if absent (lazy creation). A
   crashed/partial run leaves `last_scan_ts` untouched so the window is retried.
-- **Single targeted extract** (the `email` skill's extract-this-email mode) does
+- **Single targeted extract** (the `email-scan` skill's extract-this-email mode) does
   **not** advance `last_scan_ts` — only a full scan does.
 
 ## Scope filters (defaults; all overridable)
@@ -80,10 +80,11 @@ unread both included.** Composable toggles from config:
 1. **Cheap pass:** one/few paginated `search_threads` calls over the window →
    classify each thread from subject/snippet/sender/labels + intrinsic patterns +
    active-tasks/projects match + watch/ignore lists. **No bodies fetched.**
-2. **Rich pass (candidates only):** for auto-extract candidates and
-   read-and-plausibly-important candidates, `get_thread` `FULL_CONTENT` to pull key
-   facts, attachment names, and reply-state (`SENT` label). Ignored mail is never
-   fetched beyond stage 1.
+2. **Rich pass (candidates only):** for auto-extract candidates,
+   read-and-plausibly-important candidates, and awaiting-reply candidates (tail-check,
+   see "Awaiting-reply sweep"), `get_thread` `FULL_CONTENT` to pull key facts,
+   attachment names, and reply-state (`SENT` label). Ignored mail is never fetched
+   beyond stage 1.
 
 ## Classification (default; tunable both directions)
 
@@ -92,29 +93,48 @@ Three outcomes per thread.
 **Ignore** (never surfaced, never fetched beyond stage 1):
 - Promotions / Social (excluded at query level by default).
 - `email.ignore` matches — senders or topics (recruiters / cold outreach, etc.).
-- Obvious bulk / newsletter / automated no-reply blasts.
+- Obvious bulk / newsletter / automated no-reply blasts — **unless the thread matches an
+  active Project / open Task / `email.watch`**, in which case *relevance wins*: promote
+  it to **Surface → Updates** (below). The override requires a match to an **active**
+  project/task/watch entry, not loose keyword overlap — so a spam blast to undisclosed
+  recipients with no active-topic tie stays ignored.
 
-**Auto-extract** (high bar — writes a Raw row unattended):
-- Structured **transactional confirmations**: booking / reservation / itinerary,
-  order / receipt / invoice / payment, appointment confirmations — detected by
-  intrinsic patterns (sender, subject keywords, presence of confirmation numbers /
-  dates / amounts).
-- A clearly-actionable message on a thread matching an **active Project / open Task**
-  (from the task query `today` already ran) or an `email.watch` entry.
+**Auto-extract** (high bar — writes a Raw row unattended; **off by default**):
+- **Travel / booking / itinerary confirmations** — flights, hotels, rentals, event
+  tickets. These always qualify (detected by sender + subject keywords + presence of
+  confirmation numbers / dates).
+- **Orders / receipts / invoices / payments** qualify **only when the thread matches an
+  active Project / open Task** (from the task query `today` already ran) **or an
+  `email.watch` entry** — a topic-tie. **No dollar threshold**: amount alone is the wrong
+  signal (payroll *income* is the largest line and the least worth capturing).
+- **Routine receipts with no topic match** — coffee, rideshare, food delivery,
+  app / subscription renewals, P2P transfers, payroll / income — **do not qualify**. They
+  fall to **Ignore**, or **Surface** only if relevant.
+- A clearly-actionable message on a thread matching an **active Project / open Task** or
+  an `email.watch` entry.
 - Read-state does **not** change the auto-extract bar (timestamp dedup makes re-runs
   safe).
-- Controlled by `email.auto_extract` (default `true`). When `false`, these are
-  **surfaced** instead of written.
+- Controlled by `email.auto_extract` (**default `false`**). When `false` (the default),
+  qualifying items are **surfaced** for on-demand extraction — the explicit `email-scan`
+  extract-this-email path still writes; set it `true` to write them unattended.
 
-**Surface** (listed in the brief, no write):
-- **Unread + actionable/relevant** → **New**.
-- **Read + you already replied** (a thread message carries the `SENT` label) →
-  **handled**; suppressed from the surface list. Still eligible for auto-extract if
-  confirmation-grade.
-- **Read + no reply sent + looks important/actionable/extract-worthy** →
-  **Reminders (read, no reply)**.
-- "Actionable/relevant" = a direct ask/question to the user, a stated deadline, or
-  topical overlap with active tasks/projects/watch-list — but not confirmation-grade.
+**Surface** (listed in the brief, no write) — four groups, each omitted when empty:
+- **New** — unread + actionable/relevant.
+- **Reminders — you haven't replied** — read, *they* spoke last, no reply from you,
+  looks important/actionable/extract-worthy.
+- **Updates / heads-up** — relevant-but-**not**-actionable items promoted by the
+  relevance override: notifications tied to an active Project / open Task / `email.watch`
+  (RSVPs, invites, a CI failure on your own repo, a vendor thread). Surfaced only.
+- **Waiting — no response yet** — a thread where **your** `SENT` message is the tail and
+  it has gone unanswered longer than `email.awaiting_reply_days` (see "Awaiting-reply
+  sweep"). Surfaced only.
+- **Reply-state suppression:** a thread is **handled** and suppressed **only when your
+  `SENT` message is the latest message AND it is not stale**. If new inbound arrived
+  *after* your reply, surface it (New / Reminders / Updates as fits); if your reply is the
+  tail but older than `awaiting_reply_days`, surface it under **Waiting**. A handled-and-
+  fresh thread stays suppressed. (Still eligible for auto-extract if confirmation-grade.)
+- "Actionable/relevant" = a direct ask/question to the user, a stated deadline, or a match
+  to an **active** task/project/`email.watch` — but not confirmation-grade.
 
 **Relevance signal:**
 - **Free:** match against the task/project titles the caller **already** queried this
@@ -122,9 +142,29 @@ Three outcomes per thread.
 - **Opt-in:** `email.wiki_match: true` adds a per-candidate `notion-search` across
   Wiki/Raw. Off by default (costly / noisy).
 
-**Reply-state detection:** the **`SENT` label on any message in the thread** —
-identity-agnostic, no hardcoding the user's address. Checked only in stage 2, for
-read-and-plausibly-important candidates (adds no cost to ignored/unread-only flows).
+**Reply-state detection:** whether **your `SENT` message is the thread tail** (the latest
+message) — identity-agnostic, no hardcoding the user's address; read from per-message
+`SENT` labels + message ordering. Checked only in stage 2, for read-and-plausibly-
+important and awaiting-reply candidates (adds no cost to ignored/unread-only flows). A
+`SENT` message that is *not* the tail — new inbound followed it — does **not** mark the
+thread handled.
+
+## Awaiting-reply sweep (stale outbound)
+
+The incremental `after:<last_scan_ts>` window only sees **new inbound** — a thread you
+sent days ago and are still waiting on has no message in-window, so it can never surface
+there. A **separate bounded query** finds stale outbound and feeds the **Waiting — no
+response yet** group:
+
+- Query `in:sent newer_than:<email.awaiting_lookback_days> older_than:<email.awaiting_reply_days>`
+  (defaults 30 / 5 days) — the look-back bound keeps it from scanning your whole Sent mail;
+  the `older_than` bound is the "too long" staleness threshold.
+- **Tail-check (stage 2, candidates only):** `get_thread` each candidate; surface it only
+  when **your `SENT` message is the thread tail** (no inbound after it). Drop any thread
+  that already got a reply.
+- **Read-only, surfaced only** — never written, never labeled. Honors the same pagination
+  cap (5 pages / 250 threads); report truncation rather than dropping silently.
+- Runs in the full scan only; the single targeted-extract mode skips it.
 
 ## Extraction → Raw row
 
@@ -158,9 +198,11 @@ duplication negligible.)
 
 ## Rendering the 📧 section
 
-The **📧 From your inbox** section renders two groups — **New** and **Reminders
-(read, no reply)** — plus a note of any auto-extracted rows (with links) and any
-degradations (window capped, epoch fallback, email tool absent, window truncated).
+The **📧 From your inbox** section renders up to four groups — **New**, **Reminders —
+you haven't replied**, **Updates / heads-up**, and **Waiting — no response yet** —
+**omitting any group that is empty**. Below them, note any confirmations/extractions
+(see below) and any degradations (window capped, epoch fallback, email tool absent,
+window truncated).
 
 **Per-email bullet** (mirrors `today`'s per-task bullet convention in
 `notion-conventions.md`, but a Gmail thread is an external URL, not a Notion page —
@@ -169,10 +211,14 @@ so use a plain markdown link in **both** chat and the Journal body, never a
 why it surfaced>`. Example:
 `- [Re: lease renewal terms](https://mail.google.com/…) — landlord · asks for a decision by Fri`.
 
-Auto-extracted rows are noted under the section as
-`- Extracted to Raw: [<subject>](<gmail link>)` and, per the Referencing-pages-inline
-convention, may additionally link the created Raw row (`<mention-page>` in the
-Journal body, `[title](url)` in chat).
+**Confirmations / extractions note** (below the groups):
+- When `email.auto_extract` is **off** (the default), a qualifying confirmation is
+  **surfaced for on-demand extraction**, not written:
+  `- Confirmation you may want to extract: [<subject>](<gmail link>)`.
+- When `email.auto_extract` is **on**, an auto-written row is noted as
+  `- Extracted to Raw: [<subject>](<gmail link>)` and, per the Referencing-pages-inline
+  convention, may additionally link the created Raw row (`<mention-page>` in the Journal
+  body, `[title](url)` in chat).
 
 ## Gmail quirks & errors
 

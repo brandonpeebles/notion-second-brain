@@ -761,7 +761,8 @@ tool per `email.md`'s **Email-tool abstraction**: if a Gmail connector
 note that email scanning will be omitted until a tool is connected. If the adopted
 config has no `email` block, write the default block from `schema.md`
 (`scan_query:null`, `unread_only:false`, `important_only:false`, `window_days_cap:3`,
-`auto_extract:true`, `wiki_match:false`, empty `watch`/`ignore`). This is additive —
+`auto_extract:false`, `awaiting_reply_days:5`, `awaiting_lookback_days:30`,
+`wiki_match:false`, empty `watch`/`ignore`). This is additive —
 **never overwrite** an existing `email` block a user has customized. Do **not** create
 the AGENTS *Agent state* block here; it is created lazily on the first email scan
 (`email.md`), so existing workspaces need no re-`setup`.

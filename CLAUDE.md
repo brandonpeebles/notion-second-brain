@@ -28,8 +28,11 @@ Tested surface is the **Claude Code CLI with the claude.ai Notion connector**; o
 - `email.md` — the email scan/extract contract: Gmail-tool abstraction
   (`preferences.email_tool`), the timezone-safe scan window + the AGENTS *Agent
   state* block (`last_scan_ts`, state not config), scope filters, the two-stage
-  classify pipeline, the extraction → Raw shape (attachments as pointers), dedup, and
-  the 📧 rendering convention. `today` and `email-scan` import it and must not restate it.
+  classify pipeline, the narrowed auto-extract bar (**off by default** — travel/booking
+  or topic-tied purchases; routine receipts never qualify), the four surface groups
+  (New / Reminders / Updates / Waiting) + the awaiting-reply sweep, the extraction → Raw
+  shape (attachments as pointers), dedup, and the 📧 rendering convention. `today` and
+  `email-scan` import it and must not restate it.
 
 ## Non-obvious invariants (violating these is a bug)
 
@@ -52,7 +55,16 @@ Tested surface is the **Claude Code CLI with the claude.ai Notion connector**; o
 - **Email classification runs on cheap metadata first;** full bodies (`get_thread`
   `FULL_CONTENT`) are fetched only for surfaced/extracted candidates. Attachments are
   **pointers, not embeds** (the connector has no attachment-download tool). Reply-state
-  = the `SENT` label on any thread message (identity-agnostic).
+  = whether the **`SENT` message is the thread tail** (identity-agnostic) — a thread is
+  "handled" only when your reply is the latest message; new inbound after it un-suppresses.
+- **Auto-extract is off by default** (`email.auto_extract: false`) and narrowly gated —
+  travel/booking confirmations, or orders/receipts **tied to an active Project/Task/
+  `email.watch`** (no dollar threshold). Routine receipts with no topic tie never
+  qualify. When off, qualifying confirmations are *surfaced*, not written. **Relevance
+  beats bulk-ignore**: a bulk/automated thread matching an active topic surfaces under
+  **Updates** rather than being ignored. The **Awaiting-reply sweep** (separate bounded
+  `in:sent` query) feeds the **Waiting** group; like the rest of the scan it is
+  read-only.
 - **Native Notion icons, plain titles.** Never embed an emoji in a page/DB title — an emoji in the title *and* the icon slot renders two icons. On adopt, repair: set native icon, strip leading emoji.
 - **No page-trash tool.** Discard by moving rows into the `Archive` DB with `notion-move-pages`.
 - **Wikis, the Waiting status option, and the Notion AI instructions page are UI-only** — cannot be created/set via MCP. `setup` guides the user and verifies, or reports them as pending in non-interactive/Routine mode.

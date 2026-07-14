@@ -221,7 +221,9 @@ patching the DB to match a canonical shape:
     "unread_only": false,
     "important_only": false,
     "window_days_cap": 3,
-    "auto_extract": true,
+    "auto_extract": false,
+    "awaiting_reply_days": 5,
+    "awaiting_lookback_days": 30,
     "wiki_match": false,
     "watch":  { "topics": [], "senders": [] },
     "ignore": { "topics": [], "senders": [] }
@@ -266,7 +268,11 @@ the block (or any key) is absent, so existing workspaces keep working with **no
 re-`setup`**. `scan_query` (non-null) replaces the base scan query wholesale;
 `unread_only`/`important_only` are composable toggles; `window_days_cap` bounds
 the scan window (default 3 days); `auto_extract` gates unattended high-confidence
-writes to Raw; `wiki_match` opts into a per-candidate `notion-search`; `watch`/
+writes to Raw — **off by default**, so qualifying confirmations are *surfaced* for
+on-demand extraction rather than written (set `true` to write them unattended);
+`awaiting_reply_days` (default 5) is the staleness threshold for the "Waiting — no
+response yet" sweep and `awaiting_lookback_days` (default 30) bounds how far back that
+sweep scans Sent mail; `wiki_match` opts into a per-candidate `notion-search`; `watch`/
 `ignore` are topic/sender lists. The full behavioral contract for every key lives
 in `email.md` — this file only fixes the shape. **`last_scan_ts` is deliberately
 NOT in this block** — it is runtime state on the AGENTS page (see "Agent state

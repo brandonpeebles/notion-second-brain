@@ -171,15 +171,19 @@ it here.** In summary, this skill:
   `FULL_CONTENT` for candidates only) and **classifies** each thread. The free
   relevance signal reuses the task/project titles already queried in §2 — **no extra
   task queries.**
-- **Auto-extracts** high-confidence confirmations (and clearly-actionable
-  active-Task/Project/`watch` matches) into Raw per `email.md`'s **Extraction → Raw
-  row**, **even unattended** — that is the point. Disabled by `email.auto_extract:
-  false`, which surfaces those instead.
+- Runs the **Awaiting-reply sweep** (`email.md`) — a bounded `in:sent` query for stale
+  outbound you're still waiting on → the **Waiting** group.
+- **Auto-extract is off by default** (`email.auto_extract: false`): high-bar
+  confirmations (travel/booking, or orders tied to an active Task/Project/`watch`) are
+  **surfaced** for on-demand extraction, not written. Set `auto_extract: true` to write
+  them into Raw unattended per `email.md`'s **Extraction → Raw row**. Routine receipts
+  with no topic match never qualify.
 - Advances `last_scan_ts` to "now" in the AGENTS *Agent state* block **only after the
   scan succeeds** (`email.md`).
 
-The rendered **📧 From your inbox** section (New / Reminders / auto-extracted /
-degradations) is written into the brief and the Journal body in §5, per `email.md`'s
+The rendered **📧 From your inbox** section (New / Reminders / Updates / Waiting, plus
+any confirmations to extract and degradations) is written into the brief and the Journal
+body in §5, per `email.md`'s
 **Rendering the 📧 section**. Nothing in this section prompts — every ambiguity
 (missing email tool, capped window, epoch fallback, truncated window) is reported in
 the section, consistent with `today`'s Routine-safe rules.
@@ -215,7 +219,7 @@ Type-scoped.
 Always produce the brief as text in the response: Overdue tasks (grouped by
 source), Due-today tasks (grouped by source), Planned-today tasks (grouped
 by source, only from DBs mapping `scheduled`), Calendar section (if
-applicable, §3), the **📧 From your inbox** section (if an email tool is available, §3a — New / Reminders / auto-extracted rows / any email degradations), and a note of any dual-path degradation, mapping-driven
+applicable, §3), the **📧 From your inbox** section (if an email tool is available, §3a — New / Reminders / Updates / Waiting, any confirmations to extract, and any email degradations), and a note of any dual-path degradation, mapping-driven
 omissions, or unconfirmed-mapping skips (§2).
 
 **Per-task bullet.** Each task is one bullet that links back to its source
@@ -340,17 +344,22 @@ don't break the in-place match) and any body content outside that section is
 unchanged; no prompts are issued at any point (Routine-safe).
 
 Email (add to the same live run, with an email tool available): seed an unread
-actionable email (a direct ask with a deadline), a read email you have not replied
-to that looks important, a read email you *have* replied to (`SENT`), a Promotions
-email, and a booking/receipt-style confirmation in the window. Run `today`. Assert: a
+actionable email (a direct ask with a deadline), a read email you have not replied to
+that looks important, a read email you *have* replied to (`SENT` as the thread tail), a
+relevant automated notification tied to an active Task/Project/`watch`, a Promotions
+email, a routine receipt (coffee/app-renewal, no topic tie), a travel/booking
+confirmation, and one thread you sent >5 days ago with no reply. Run `today`. Assert: a
 **📧 From your inbox** section appears in both the chat brief and the Journal
 `## Daily Brief — ⟨date⟩` body — the actionable unread under **New**, the read-no-reply
-under **Reminders (read, no reply)**, the replied thread suppressed, the Promotions
-email absent; the confirmation is **auto-extracted** into a Raw row (`Source` = Gmail
-link, `Triage` = the resolved `new` value, key facts + attachment pointers in the
-body) and noted in the section; per-email bullets are markdown links to Gmail (no
-`<mention-*>` tags); a **second run the same day** scans a near-empty window and
-creates no duplicate Raw row; `last_scan_ts` in the AGENTS *Agent state* block is a
-UTC instant with offset; **no prompts** are issued (a >`window_days_cap` gap is
-capped + flagged, never asked). With **no email tool available**, `today` produces a
-complete brief with **no 📧 section and no error**.
+under **Reminders — you haven't replied**, the relevant notification under **Updates /
+heads-up** (relevance beat bulk-ignore), the stale sent thread under **Waiting — no
+response yet**, the fresh replied thread suppressed, the Promotions email and the routine
+receipt both absent; with `auto_extract` at its default `false`, the travel confirmation
+is **surfaced** as "Confirmation you may want to extract" and **no Raw row is written**
+(set `auto_extract: true` to instead write it — `Source` = Gmail link, `Triage` = the
+resolved `new` value, key facts + attachment pointers in the body); per-email bullets
+are markdown links to Gmail (no `<mention-*>` tags); a **second run the same day** scans
+a near-empty window; `last_scan_ts` in the AGENTS *Agent state* block is a UTC instant
+with offset; **no prompts** are issued (a >`window_days_cap` gap is capped + flagged,
+never asked). With **no email tool available**, `today` produces a complete brief with
+**no 📧 section and no error**.

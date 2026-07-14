@@ -6,8 +6,9 @@ description: Use when the user wants to scan their inbox for anything new worth 
 # email-scan
 
 Interactive entry point for email scanning and extraction. Two modes: **scan-now**
-(classify the recent window, surface New / Reminders, auto-extract high-confidence
-confirmations) and **extract-this-email** (locate an email the user references,
+(classify the recent window; surface New / Reminders / Updates / Waiting; extract
+confirmations only when `email.auto_extract` is on — **off by default**) and
+**extract-this-email** (locate an email the user references,
 confirm the match, extract it into Raw). Reuses the exact pipeline `today` runs
 unattended, but may prompt and do heavier work.
 
@@ -52,9 +53,11 @@ Run the pipeline defined in `email.md` end to end: read `last_scan_ts` from the
 AGENTS *Agent state* block; compute the window (apply the **gap guard** — since this
 is interactive, **ask** which window to use when the gap exceeds
 `email.window_days_cap`); build the scoped query; stage-1 `search_threads`; classify;
-stage-2 `get_thread` `FULL_CONTENT` for candidates; auto-extract high-confidence rows
-into Raw (unless `email.auto_extract` is `false`, in which case surface them); render
-the 📧 section (New / Reminders / auto-extracted / degradations) per `email.md`.
+stage-2 `get_thread` `FULL_CONTENT` for candidates (incl. the **Awaiting-reply sweep**
+for stale outbound); with `email.auto_extract` **off by default**, surface qualifying
+confirmations for on-demand extraction (set it `true` to write them into Raw
+unattended); render the 📧 section (New / Reminders / Updates / Waiting, plus any
+confirmations to extract and degradations) per `email.md`.
 
 Because this is interactive, you **may** additionally:
 - Offer to extract any **surfaced** item on request (turn a Reminder/New item into a
@@ -94,17 +97,23 @@ succeeded, don't advance `last_scan_ts`. Never fake a scan or a created row.
 Smoke test (run against a live Notion + Gmail workspace):
 - **Scan-now:** seed (a) an unread actionable email — a direct ask with a deadline,
   (b) a read email you have **not** replied to that looks important, (c) a read email
-  you **have** replied to (has `SENT`), (d) a Promotions email, and (e) a
-  booking/receipt-style confirmation. Run `email-scan` scan-now.
-  Assert: (a) appears under **New**; (b) appears under **Reminders (read, no reply)**;
-  (c) is suppressed (handled); (d) never appears; (e) creates a Raw row (`Source` =
-  Gmail thread link, `Triage` = the resolved `new` value, key facts + any attachment
-  pointers in the body) and is noted in the 📧 section. Re-run same day → near-empty
-  window, no duplicate Raw row. `last_scan_ts` in the AGENTS *Agent state* block is a
-  UTC instant with offset afterward.
-- **Watch/ignore:** add an `email.ignore` sender → a matching email is suppressed; add
-  an `email.watch` topic → a topical-but-not-actionable match is **surfaced**, while a
-  clearly-actionable one is **auto-extracted** (per `email.md`'s **Classification**).
+  you **have** replied to (`SENT` as the tail), (d) a Promotions email, (e) a routine
+  receipt with no topic tie, (f) a travel/booking confirmation, (g) a relevant automated
+  notification tied to an active Task/Project/`watch`, and (h) a thread you sent >5 days
+  ago with no reply. Run `email-scan` scan-now.
+  Assert: (a) under **New**; (b) under **Reminders — you haven't replied**; (c)
+  suppressed (handled); (d) and (e) never appear; (f) with `auto_extract` at its default
+  `false` is **surfaced** as "Confirmation you may want to extract" and writes **no** Raw
+  row (flipping `auto_extract: true` writes it — `Source` = Gmail thread link, `Triage` =
+  the resolved `new` value, key facts + any attachment pointers in the body); (g) under
+  **Updates / heads-up** (relevance beat bulk-ignore); (h) under **Waiting — no response
+  yet**. Re-run same day → near-empty window. `last_scan_ts` in the AGENTS *Agent state*
+  block is a UTC instant with offset afterward.
+- **Watch/ignore:** add an `email.ignore` sender → a matching email is suppressed
+  **unless** it matches an active topic/`watch` (relevance wins → surfaces under
+  **Updates**); add an `email.watch` topic → a topical-but-not-actionable match is
+  **surfaced** (Updates), and — only with `auto_extract: true` — a matching
+  order/receipt is **auto-extracted** (per `email.md`'s **Classification**).
 - **Extract-this-email:** reference a specific email by description ("the Delta
   confirmation"); assert the skill locates it, confirms the match, then creates the
   Raw row — and does **not** advance `last_scan_ts`.
