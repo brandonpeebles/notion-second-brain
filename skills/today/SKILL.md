@@ -1,6 +1,6 @@
 ---
 name: today
-description: Use when the user asks for their daily brief, what's due, or what's on today — reports overdue and due-today tasks across all task databases, today's calendar events, and upserts a daily journal entry. Runs unattended in Routines (reports only, never prompts).
+description: Use when the user asks for their daily brief, what's due, or what's on today — reports overdue and due-today tasks across all task databases, today's calendar events, notable email from your inbox if an email tool is available, and upserts a daily journal entry. Runs unattended in Routines (reports only, never prompts).
 ---
 
 # today
@@ -20,7 +20,11 @@ Consult `../shared-references/notion-conventions.md` for MCP quirks
 limits, async writes) and its **Referencing pages inline** convention (how
 each task links to its source row — native mentions in the Journal body,
 markdown links in chat), and `../shared-references/query-plan-gating.md` for
-the plan-gate error signature and fallback decision tree. Use config keys
+the plan-gate error signature and fallback decision tree. Consult
+`../shared-references/email.md` for the entire email scan/surface/auto-extract
+contract (tool abstraction, window + the AGENTS *Agent state* block,
+classification, extraction, the 📧 rendering convention) — this skill points
+to it and never restates it. Use config keys
 and the Journal's property names exactly as `schema.md` defines them — the
 Journal is an internal DB with no mapping. Task-DB property names and status
 values are **never** hard-coded: for every task DB (personal and each shared
@@ -149,6 +153,35 @@ If no calendar tool is set in config and none is available in the session,
 its absence as a failure; a brief with no calendar section is a normal,
 complete brief.
 
+### 3a. Email — scan, surface, auto-extract (auto-detect, omit if none)
+
+Run the email pipeline defined in `../shared-references/email.md` — **do not restate
+it here.** In summary, this skill:
+
+- Resolves the email tool per `email.md`'s **Email-tool abstraction**. **If no email
+  tool is set in config and none is available in the session, omit the 📧 section
+  entirely** — no error, no reported failure (mirrors the Calendar rule in §3).
+- Reads `last_scan_ts` from the AGENTS *Agent state* block and computes the window
+  (`email.md` **Scan window** + **Agent state block**). **Routine-safe gap guard:**
+  `today` **never prompts** — when the gap exceeds `email.window_days_cap`, cap the
+  window and **flag it** in the 📧 section (never ask).
+- Runs the **two-stage pipeline** (cheap `search_threads`; rich `get_thread`
+  `FULL_CONTENT` for candidates only) and **classifies** each thread. The free
+  relevance signal reuses the task/project titles already queried in §2 — **no extra
+  task queries.**
+- **Auto-extracts** high-confidence confirmations (and clearly-actionable
+  active-Task/Project/`watch` matches) into Raw per `email.md`'s **Extraction → Raw
+  row**, **even unattended** — that is the point. Disabled by `email.auto_extract:
+  false`, which surfaces those instead.
+- Advances `last_scan_ts` to "now" in the AGENTS *Agent state* block **only after the
+  scan succeeds** (`email.md`).
+
+The rendered **📧 From your inbox** section (New / Reminders / auto-extracted /
+degradations) is written into the brief and the Journal body in §5, per `email.md`'s
+**Rendering the 📧 section**. Nothing in this section prompts — every ambiguity
+(missing email tool, capped window, epoch fallback, truncated window) is reported in
+the section, consistent with `today`'s Routine-safe rules.
+
 ### 4. Journal upsert — one row per date
 
 Query `journal.data_source_url` (single-source `notion-query-data-sources`)
@@ -180,7 +213,7 @@ Type-scoped.
 Always produce the brief as text in the response: Overdue tasks (grouped by
 source), Due-today tasks (grouped by source), Planned-today tasks (grouped
 by source, only from DBs mapping `scheduled`), Calendar section (if
-applicable, §3), and a note of any dual-path degradation, mapping-driven
+applicable, §3), the **📧 From your inbox** section (if an email tool is available, §3a — New / Reminders / auto-extracted rows / any email degradations), and a note of any dual-path degradation, mapping-driven
 omissions, or unconfirmed-mapping skips (§2).
 
 **Per-task bullet.** Each task is one bullet that links back to its source
@@ -222,6 +255,8 @@ headed by a stable marker, `## Daily Brief — ⟨date⟩` (resolved date from
 §1), so re-runs **refresh that one section rather than appending a duplicate
 copy** and repeated runs in a day never bloat the row:
 
+The 📧 section (§3a), when present, is part of this brief content and is written into the same `## Daily Brief — ⟨date⟩` section — its per-email bullets use markdown links to the Gmail threads (external URLs, not `<mention-page>` tags), per `email.md`'s **Rendering the 📧 section**, so they are identical in the chat brief and the Journal body and the in-place refresh matches on re-runs.
+
 - **No such section in the fetched body (first run of the day):** append it
   with `insert_content` at `{"type":"end"}`.
 - **Section already present:** replace it in place with `update_content` —
@@ -248,6 +283,11 @@ copy** and repeated runs in a day never bloat the row:
   unauthenticated or otherwise): say so plainly, check `/mcp` and confirm
   you're logged in with your claude.ai account, and **stop** — never fake a
   brief or report tasks that weren't actually fetched.
+- **Email tool unavailable/unauthenticated:** the 📧 section is **omitted**, not an
+  error, when no email tool is configured or available (§3a). If an email tool *is*
+  present but its call fails or is unauthenticated, flag that in the 📧 section
+  (partial-failure pattern) and do **not** advance `last_scan_ts` — never fake a scan
+  (per `email.md`).
 - **Rate limiting (`429`):** honor `Retry-After` and back off before
   retrying, per `notion-conventions.md`.
 - **Large/async writes:** if the Journal upsert write returns an async
@@ -296,3 +336,19 @@ after a **second run the same day** the row still has exactly one Daily Brief
 section (refreshed in place, not duplicated — the mention/date-pill bullets
 don't break the in-place match) and any body content outside that section is
 unchanged; no prompts are issued at any point (Routine-safe).
+
+Email (add to the same live run, with an email tool available): seed an unread
+actionable email (a direct ask with a deadline), a read email you have not replied
+to that looks important, a read email you *have* replied to (`SENT`), a Promotions
+email, and a booking/receipt-style confirmation in the window. Run `today`. Assert: a
+**📧 From your inbox** section appears in both the chat brief and the Journal
+`## Daily Brief — ⟨date⟩` body — the actionable unread under **New**, the read-no-reply
+under **Reminders (read, no reply)**, the replied thread suppressed, the Promotions
+email absent; the confirmation is **auto-extracted** into a Raw row (`Source` = Gmail
+link, `Triage` = the resolved `new` value, key facts + attachment pointers in the
+body) and noted in the section; per-email bullets are markdown links to Gmail (no
+`<mention-*>` tags); a **second run the same day** scans a near-empty window and
+creates no duplicate Raw row; `last_scan_ts` in the AGENTS *Agent state* block is a
+UTC instant with offset; **no prompts** are issued (a >`window_days_cap` gap is
+capped + flagged, never asked). With **no email tool available**, `today` produces a
+complete brief with **no 📧 section and no error**.
