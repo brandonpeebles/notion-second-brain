@@ -103,7 +103,8 @@ Smoke test (run against a live Notion + Gmail workspace):
   window, no duplicate Raw row. `last_scan_ts` in the AGENTS *Agent state* block is a
   UTC instant with offset afterward.
 - **Watch/ignore:** add an `email.ignore` sender → a matching email is suppressed; add
-  an `email.watch` topic → a matching non-confirmation email is surfaced.
+  an `email.watch` topic → a topical-but-not-actionable match is **surfaced**, while a
+  clearly-actionable one is **auto-extracted** (per `email.md`'s **Classification**).
 - **Extract-this-email:** reference a specific email by description ("the Delta
   confirmation"); assert the skill locates it, confirms the match, then creates the
   Raw row — and does **not** advance `last_scan_ts`.
