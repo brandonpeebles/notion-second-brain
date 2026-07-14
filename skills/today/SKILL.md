@@ -41,8 +41,10 @@ name) when a role isn't mapped for that DB.
 Same pattern as `capture`: look for `config.json` in the launch folder
 first; if present and valid, read `tasks_personal.data_source_url`,
 `shared_spaces[].tasks` (data source URLs), `journal.data_source_url`,
-`preferences.timezone`, `preferences.calendar_tool`, and `notion_user_id`
-from it.
+`preferences.timezone`, `preferences.calendar_tool`, `notion_user_id`,
+and — for the 📧 email section (§3a) — `preferences.email_tool`, the
+`email` block, `agents_page`, `inbox.data_source_url`, and
+`inbox.triage_values` from it.
 
 If no `config.json` is found, fall back to discovery: `notion-search` for
 the root page named exactly `Second Brain` (emoji prefix allowed), then
