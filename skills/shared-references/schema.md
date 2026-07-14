@@ -215,7 +215,17 @@ patching the DB to match a canonical shape:
       }
     }
   ],
-  "preferences": { "timezone": "America/New_York", "calendar_tool": null }
+  "preferences": { "timezone": "America/New_York", "calendar_tool": null, "email_tool": null },
+  "email": {
+    "scan_query": null,
+    "unread_only": false,
+    "important_only": false,
+    "window_days_cap": 3,
+    "auto_extract": true,
+    "wiki_match": false,
+    "watch":  { "topics": [], "senders": [] },
+    "ignore": { "topics": [], "senders": [] }
+  }
 }
 ```
 
@@ -246,6 +256,22 @@ Inbox view" above), used only to render the Home page's Inbox quick link. Its
 absence never blocks `capture`/`triage`, which address Raw directly via
 `inbox.data_source_url`.
 
+`preferences.email_tool` is **optional** — `null` (the default) auto-detects the
+Gmail connector (`mcp__claude_ai_Gmail__*`) in the session; `"gmail"` pins it. It
+mirrors `preferences.calendar_tool`. When no email tool is set and none is
+available, email scanning is omitted, never an error (see `email.md`).
+
+The `email` block is **optional** — every key defaults per the example above when
+the block (or any key) is absent, so existing workspaces keep working with **no
+re-`setup`**. `scan_query` (non-null) replaces the base scan query wholesale;
+`unread_only`/`important_only` are composable toggles; `window_days_cap` bounds
+the scan window (default 3 days); `auto_extract` gates unattended high-confidence
+writes to Raw; `wiki_match` opts into a per-candidate `notion-search`; `watch`/
+`ignore` are topic/sender lists. The full behavioral contract for every key lives
+in `email.md` — this file only fixes the shape. **`last_scan_ts` is deliberately
+NOT in this block** — it is runtime state on the AGENTS page (see "Agent state
+block" below and `email.md`), so daily scanning never churns `config.json`.
+
 ## Discovery config-block format (fallback when no `config.json`)
 
 When no `config.json` is found, skills `notion-search` for the root page named
@@ -256,3 +282,21 @@ as `config.json` above**, including each task DB's
 `properties`/`status_values`/`confirmed` mapping. One `notion-fetch` of AGENTS
 yields every ID. On ambiguity or no match: **fail loudly** with setup
 instructions — never guess.
+
+## AGENTS-page *Agent state* block (runtime state, not config)
+
+Beyond the fenced ```json **config** block (above), the AGENTS page also carries
+a **separate** fenced ```json block under an `## Agent state` heading, holding
+runtime state that must **not** live in `config.json` (so daily writes don't churn
+git) and must **not** live in the config block (so it is exempt from the
+config↔config-block sync invariant — see `durability-modes.md`). Shape:
+
+```json
+{ "email": { "last_scan_ts": "2026-07-13T18:30:00Z" } }
+```
+
+`last_scan_ts` is an absolute UTC instant (ISO-8601 with explicit offset). The
+block is created **lazily** on the first email scan (not by `setup`), read via
+`notion-fetch` and rewritten in place via `update_content`, and works identically
+in `durable` and `ephemeral` modes. The full state contract (advance-on-success,
+timezone rule, gap guard) lives in `email.md`.

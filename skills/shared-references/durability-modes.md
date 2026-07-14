@@ -70,3 +70,11 @@ present.)
   **and** the AGENTS page's fenced config block — they must never desync.
 - **`ephemeral`:** there is no local `config.json`. The AGENTS block is the
   single source and the only thing to update.
+
+**Carve-out — `last_scan_ts` is state, not config.** The email scan window state
+(`last_scan_ts`) is **not** subject to this invariant. It lives **only** in the
+AGENTS page's separate `## Agent state` fenced block (never in `config.json`,
+never in the AGENTS **config** block), in **both** modes. It is runtime state, not
+configuration — so a daily scan advancing it never triggers a `config.json`↔config-block
+sync and never churns git. See `email.md` for the state contract and `schema.md`
+for the block's shape.
