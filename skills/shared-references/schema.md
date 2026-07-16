@@ -258,6 +258,14 @@ Inbox view" above), used only to render the Home page's Inbox quick link. Its
 absence never blocks `capture`/`triage`, which address Raw directly via
 `inbox.data_source_url`.
 
+`preferences.calendar_tool` is **optional** — `null` (the default) auto-detects a
+session calendar connector (Google Calendar, `mcp__claude_ai_Google_Calendar__*`);
+`"google_calendar"` pins it. `today` writes the detected value back on first
+discovery — durable: `config.json` **and** the AGENTS config block; ephemeral: the
+AGENTS block only (see `durability-modes.md`) — so later runs skip re-discovery.
+When no calendar tool is set and none is available, the Calendar section is
+omitted, never an error (see `today`'s §3).
+
 `preferences.email_tool` is **optional** — `null` (the default) auto-detects the
 Gmail connector (`mcp__claude_ai_Gmail__*`) in the session; `"gmail"` pins it. It
 mirrors `preferences.calendar_tool`. When no email tool is set and none is

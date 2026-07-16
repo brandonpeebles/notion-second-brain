@@ -145,15 +145,39 @@ structured filter).
 
 ### 3. Calendar — auto-detect, omit if none
 
-Auto-detect the calendar source: if `preferences.calendar_tool` is set in
-config, use that tool; otherwise use whatever calendar tool the current
-session exposes. List today's events (resolved date from §1) and include
-them as a Calendar section in the brief.
+Resolve the calendar source in two explicit checks, **in order**. The omit
+path is reachable **only after both come back empty** — never skip check (b)
+and jump to omit.
 
-If no calendar tool is set in config and none is available in the session,
-**omit the Calendar section entirely** — do not error, and do not report
-its absence as a failure; a brief with no calendar section is a normal,
-complete brief.
+- **(a) Config check.** If `preferences.calendar_tool` is set (non-null) in
+  config, use that tool and stop — no session discovery needed.
+- **(b) Session-discovery check.** If `calendar_tool` is null/unset, **explicitly
+  enumerate the calendar-capable tools this session exposes** before concluding
+  none exist — look for a Google Calendar connector
+  (`mcp__claude_ai_Google_Calendar__*`) or any tool that lists calendar events.
+  If one is found, use it, and **write it back** (below).
+
+With a tool resolved by (a) or (b): list today's events (resolved date from §1)
+and include them as a Calendar section in the brief.
+
+**Omit only after both checks fail.** If (a) found no configured tool *and* (b)
+found none in the session, **omit the Calendar section entirely** — do not
+error, and do not report its absence as a failure; a brief with no calendar
+section is normal and complete. When omitting, **state which check produced the
+empty result** (e.g. "no `calendar_tool` in config and no calendar tool found in
+the session") — never a bare "omitted, no tool."
+
+**Write back a detected tool (fast path for next run).** When **(b)** succeeds —
+`calendar_tool` was null and session discovery found a calendar tool — persist
+`"google_calendar"` to `preferences.calendar_tool` so subsequent runs take the
+fast (a) path instead of re-discovering. Write it **once, only when it was null**
+— never overwrite a user-set value, and a run already resolved by (a) writes
+nothing. Honor the config-sync invariant in
+`../shared-references/durability-modes.md`: in **durable** mode write **both**
+`config.json` and the AGENTS page's fenced config block (they must never
+desync); in **ephemeral** mode write **only** the AGENTS config block. If the
+mode is durable but `git` is unavailable, write the file and continue without
+committing (no-git degradation) — never error over the persist.
 
 ### 3a. Email — scan, surface, auto-extract (auto-detect, omit if none)
 
@@ -323,9 +347,8 @@ Assertions: the brief lists overdue + due-today tasks across ALL task
 databases (queried one at a time, merged, each filtered through its own
 mapping — no literal `Due`/`Status`/`Done`/`Assignee` assumed), grouped
 sensibly; a Planned-today section appears for any DB that maps `scheduled`
-and is silently absent from DBs that don't; a Calendar section appears IF a
-calendar tool is present in the session (otherwise it's omitted, not an
-error); a DB with an unconfirmed `due`/`status`/`scheduled` role is skipped
+and is silently absent from DBs that don't; the Calendar section behaves per the
+**Calendar** cases below; a DB with an unconfirmed `due`/`status`/`scheduled` role is skipped
 for the affected bucket and reported, not silently included or excluded; a
 Journal row for today exists afterward (created if missing, updated if
 already present — one `Type = Daily` row per date, using the Journal's
@@ -342,6 +365,22 @@ after a **second run the same day** the row still has exactly one Daily Brief
 section (refreshed in place, not duplicated — the mention/date-pill bullets
 don't break the in-place match) and any body content outside that section is
 unchanged; no prompts are issued at any point (Routine-safe).
+
+Calendar (add to the same live run): run three named cases.
+- **Configured** — `preferences.calendar_tool` set to `"google_calendar"`: the
+  brief's Calendar section is populated from that tool via check **(a)**; no
+  session discovery is performed.
+- **Detected-but-unconfigured** — `calendar_tool` unset (null) in config **but a
+  calendar tool IS available in the session** (e.g. the Google Calendar
+  connector): assert the Calendar section is **populated, not omitted** (check
+  **(b)** found the tool), and that `today` **writes `"google_calendar"` back** to
+  `preferences.calendar_tool` — in durable mode into **both** `config.json` and
+  the AGENTS config block, in ephemeral mode into the AGENTS block only — so a
+  **second run** resolves via check (a) with no re-discovery and writes nothing
+  further.
+- **None available** — `calendar_tool` unset and no calendar tool in the session:
+  the Calendar section is **omitted, not an error**, and the brief **states which
+  check came back empty** (config *and* session), not a bare "omitted, no tool."
 
 Email (add to the same live run, with an email tool available): seed an unread
 actionable email (a direct ask with a deadline), a read email you have not replied to
