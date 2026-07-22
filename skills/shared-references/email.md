@@ -213,11 +213,21 @@ special downstream handling.
 
 ## Dedup (timestamp-only)
 
-The advancing `last_scan_ts` means a re-run scans a near-empty window, so duplicate
-rows aren't created. **No Gmail writes, no Raw lookups.** (Trade-off: a partial run
-that failed before advancing `last_scan_ts` re-scans the same window next time —
-the safe direction; the high auto-extract bar plus near-empty windows keep any
-duplication negligible.)
+Auto-extract fires **only for items whose triggering message is ≥ `last_scan_ts`** — the
+same **new slice** the chat render marks `· new`. The day-scoped widening in "Scan window"
+applies to the **read/render path only**; the **write path stays incremental**, so a
+re-run later the same day re-*renders* the whole day but re-*writes* nothing. Dedup
+therefore rests on the **write path being incremental** — **not** on the scan window
+being near-empty (which the day-scoped `window_start` makes false). **No Gmail writes, no
+Raw lookups.**
+
+- **Trade-off:** a partial run that failed before advancing `last_scan_ts` re-scans the
+  same window next time — the safe direction; the high auto-extract bar keeps any
+  duplication negligible.
+- **Mid-day-flip edge:** if `auto_extract` is flipped **on** mid-day, that run's
+  confirmations note may label an earlier (pre-cursor) item "Extracted to Raw" when
+  nothing was actually written. Rare, self-corrects on the next run — called out here
+  rather than engineered away.
 
 ## Rendering the 📧 section
 
