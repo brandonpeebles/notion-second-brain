@@ -21,7 +21,8 @@ task/project relevance uses the task query `today` already runs (see below).
 
 ## Scan window (timezone-safe)
 
-- Scan `after:<last_scan_ts>`.
+- Scan `after:<window_start>` (the Window-start rule below; `last_scan_ts` is its
+  incremental floor).
 - **`last_scan_ts` is an absolute UTC instant** (ISO-8601 with explicit offset, e.g.
   `2026-07-13T18:30:00Z`) — never a wall-clock local time. An instant is one unique
   moment regardless of the user's location or what the session clock reads, so
