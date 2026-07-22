@@ -227,6 +227,26 @@ you haven't replied**, **Updates / heads-up**, and **Waiting — no response yet
 (see below) and any degradations (window capped, epoch fallback, email tool absent,
 window truncated).
 
+**Two renderings from one classified set.** The window rule produces **one** surfaced
+set per run (never two scans). Because `window_start` is a superset of both "today" and
+"since `last_scan_ts`", that one set serves both surfaces — they differ only in a marker:
+
+- **Journal 📧 section** — the **full set, unmarked**: a complete, self-contained record
+  of the day (plus any gap-guard catch-up spillover, already flagged).
+- **Chat brief** — the **same set**, with **`· new`** appended to any item whose
+  triggering message timestamp is **≥ `last_scan_ts`**.
+  - **Every item new** (ordinary first-run-of-the-day): **omit** the markers as noise.
+  - **No item new** (a re-run after the cursor already advanced — the Finding 2 case):
+    render the day's groups and add one line —
+    **`Nothing new since your ⟨HH:MM in preferences.timezone⟩ scan.`**
+- **Waiting** is **never marked** — the awaiting-reply sweep is a bounded `in:sent` query
+  with no window; it is already current in both surfaces.
+
+This is a **re-derived snapshot, not an append-only log.** A thread that surfaced in the
+morning but is now handled (replied, extracted, ignored) legitimately **drops off** —
+exactly like a completed task leaving the task list. "Nothing that appeared in the
+morning is ever removed" is explicitly **not** a property.
+
 **Per-email bullet** (mirrors `today`'s per-task bullet convention in
 `notion-conventions.md`, but a Gmail thread is an external URL, not a Notion page —
 so use a plain markdown link in **both** chat and the Journal body, never a
@@ -242,6 +262,11 @@ why it surfaced>`. Example:
   `- Extracted to Raw: [<subject>](<gmail link>)` and, per the Referencing-pages-inline
   convention, may additionally link the created Raw row (`<mention-page>` in the Journal
   body, `[title](url)` in chat).
+- The **Extracted to Raw** note reflects only the **new slice** (`≥ last_scan_ts`): the
+  write path is incremental (see "Dedup"), so a re-run later the same day re-*renders* the
+  whole day but does **not** re-note the morning's already-written confirmations. (The
+  *surfaced* "Confirmation you may want to extract" line, by contrast, covers the whole
+  day's set — surfacing is a read-path render.)
 
 ## Gmail quirks & errors
 
