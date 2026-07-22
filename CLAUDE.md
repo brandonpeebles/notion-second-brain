@@ -52,6 +52,14 @@ Tested surface is the **Claude Code CLI with the claude.ai Notion connector**; o
   conversion (epoch `after:<epoch>`) and human display (`preferences.timezone`) —
   never in storage or comparison. The gap guard is an instant−instant duration, never
   a date-string diff.
+- **`last_scan_ts` no longer bounds the Journal 📧 section.** The scan's
+  `window_start = min(capped_start, day_start)` is a **superset** of both "today" and
+  "since `last_scan_ts`" and never starts later than today's local midnight, so the
+  Journal section is a complete **day-scoped** record — re-derived each run, **not**
+  append-only (a now-handled thread legitimately drops off). `last_scan_ts` does only two
+  jobs: the **catch-up floor** and the **`· new` boundary** in the chat render. The
+  **write path stays incremental** — auto-extract fires only for items `≥ last_scan_ts`,
+  so dedup rests on that, not on a near-empty window (see `email.md`).
 - **Email classification runs on cheap metadata first;** full bodies (`get_thread`
   `FULL_CONTENT`) are fetched only for surfaced/extracted candidates. Attachments are
   **pointers, not embeds** (the connector has no attachment-download tool). Reply-state
