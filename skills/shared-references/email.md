@@ -40,6 +40,21 @@ task/project relevance uses the task query `today` already runs (see below).
     it** in the brief (never prompt).
 - **First scan** (no `last_scan_ts` yet): treat as "no prior scan" — use the
   `window_days_cap` window; interactive callers may confirm it.
+- **Window start (day-scoped floor).** The scan's lower bound is a single derived
+  instant, computed **identically** by `today` §3a and `email-scan` §3:
+  ```
+  capped_start = max(last_scan_ts, now_utc − window_days_cap)   # the gap guard above, unchanged
+  day_start    = start of the resolved date in preferences.timezone, as a UTC instant
+  window_start = min(capped_start, day_start)
+  ```
+  Because `window_start ≤ day_start` always, the window can **never start later than
+  today's local midnight** — a re-run later in the day still re-scans the **whole day**,
+  not a near-empty slice. Convert `window_start` to the Gmail `after:` form exactly as
+  before (epoch seconds, with the date-granular fallback on rejection). **First scan**
+  (no `last_scan_ts`): a no-op — the `window_days_cap` window already contains
+  `day_start`. The gap guard, capped-window flag, epoch conversion, and UTC-instant
+  storage/compare rules are all unchanged; this rule only *widens* the lower bound (down
+  to today's midnight), never past it.
 - **"now"** (for advancing the value) is captured as a UTC instant and stored
   normalized to UTC. Never reinterpret a bare local time as UTC or vice-versa.
 - **Human-facing rendering only** ("scanning since <when>", brief text) converts to
@@ -61,6 +76,14 @@ task/project relevance uses the task query `today` already runs (see below).
   crashed/partial run leaves `last_scan_ts` untouched so the window is retried.
 - **Single targeted extract** (the `email-scan` skill's extract-this-email mode) does
   **not** advance `last_scan_ts` — only a full scan does.
+- **Role (narrowed — state it outright).** `last_scan_ts` keeps its exact definition
+  above (UTC instant, advanced only on a successful full scan). Its **role** is now
+  exactly two jobs: (1) the **catch-up floor** — via `capped_start` in the window rule —
+  and (2) the **`· new` boundary** in the chat render (see "Rendering the 📧 section").
+  It **no longer bounds what the Journal 📧 section contains** — `window_start` (a
+  superset of both "today" and "since `last_scan_ts`") does. A thread older than
+  `last_scan_ts` but from earlier today still belongs in today's section; it is simply
+  rendered **unmarked**.
 
 ## Scope filters (defaults; all overridable)
 
