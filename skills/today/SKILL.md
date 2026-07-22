@@ -191,6 +191,11 @@ it here.** In summary, this skill:
   (`email.md` **Scan window** + **Agent state block**). **Routine-safe gap guard:**
   `today` **never prompts** — when the gap exceeds `email.window_days_cap`, cap the
   window and **flag it** in the 📧 section (never ask).
+- The window is **day-scoped** (`email.md`'s `window_start` rule): it never starts later
+  than today's local midnight, so a re-run later in the day re-scans the **whole day**,
+  not a near-empty slice. The Journal 📧 section renders the **full day unmarked**; the
+  chat brief marks post-`last_scan_ts` items **`· new`** (or shows the "Nothing new since"
+  line when none are new) — both per `email.md`'s **Rendering the 📧 section**.
 - Runs the **two-stage pipeline** (cheap `search_threads`; rich `get_thread`
   `FULL_CONTENT` for candidates only) and **classifies** each thread. The free
   relevance signal reuses the task/project titles already queried in §2 — **no extra
@@ -285,7 +290,7 @@ headed by a stable marker, `## Daily Brief — ⟨date⟩` (resolved date from
 §1), so re-runs **refresh that one section rather than appending a duplicate
 copy** and repeated runs in a day never bloat the row:
 
-The 📧 section (§3a), when present, is part of this brief content and is written into the same `## Daily Brief — ⟨date⟩` section — its per-email bullets use markdown links to the Gmail threads (external URLs, not `<mention-page>` tags), per `email.md`'s **Rendering the 📧 section**, so they are identical in the chat brief and the Journal body and the in-place refresh matches on re-runs.
+The 📧 section (§3a), when present, is part of this brief content and is written into the same `## Daily Brief — ⟨date⟩` section — its per-email bullets use markdown links to the Gmail threads (external URLs, not `<mention-page>` tags), per `email.md`'s **Rendering the 📧 section**, so they are identical in the chat brief and the Journal body and the in-place refresh matches on re-runs. Because the 📧 section is re-derived **complete for the day** (the day-scoped `window_start` rule in `email.md`), the wholesale in-place replace below regenerates it **without loss** — a later run does not shrink it to a near-empty window. The replace **mechanism itself is unchanged** (still a single `update_content` of the `## Daily Brief — ⟨date⟩` section; no merge, no bullet parsing).
 
 - **No such section in the fetched body (first run of the day):** append it
   with `insert_content` at `{"type":"end"}`.
@@ -397,8 +402,15 @@ receipt both absent; with `auto_extract` at its default `false`, the travel conf
 is **surfaced** as "Confirmation you may want to extract" and **no Raw row is written**
 (set `auto_extract: true` to instead write it — `Source` = Gmail link, `Triage` = the
 resolved `new` value, key facts + attachment pointers in the body); per-email bullets
-are markdown links to Gmail (no `<mention-*>` tags); a **second run the same day** scans
-a near-empty window; `last_scan_ts` in the AGENTS *Agent state* block is a UTC instant
+are markdown links to Gmail (no `<mention-*>` tags); a **second run the same day** re-renders the **full day** in the Journal 📧 section — the
+morning's New / Reminders / Updates bullets are **still present** (Finding 1 regression),
+not overwritten from a near-empty window — while the chat brief marks any post-cursor
+items `· new`, or, when none are new, carries the **"Nothing new since your ⟨HH:MM⟩
+scan."** line instead of empty groups; `last_scan_ts` in the AGENTS *Agent state* block is a UTC instant
 with offset; **no prompts** are issued (a >`window_days_cap` gap is capped + flagged,
 never asked). With **no email tool available**, `today` produces a complete brief with
-**no 📧 section and no error**.
+**no 📧 section and no error**. **Finding 2 regression:** run `email-scan` scan-now first (advancing `last_scan_ts`),
+then `today` — assert the brief's 📧 section is **populated** and carries the "Nothing new
+since" line, **not** empty groups. **Dedup under widening:** with `auto_extract: true`, run
+`today` **twice** in one day and assert **exactly one** Raw row per confirmation (the write
+path is incremental).
