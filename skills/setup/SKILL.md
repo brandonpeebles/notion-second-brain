@@ -762,7 +762,24 @@ note that email scanning will be omitted until a tool is connected. If the adopt
 config has no `email` block, write the default block from `schema.md`
 (`scan_query:null`, `unread_only:false`, `important_only:false`, `window_days_cap:3`,
 `auto_extract:false`, `awaiting_reply_days:5`, `awaiting_lookback_days:30`,
-`wiki_match:false`, empty `watch`/`ignore`). This is additive —
+`wiki_match:false`, empty `watch`/`ignore`).
+
+**Migrate legacy flat-array `watch`/`ignore` (before the never-overwrite check).** If an
+existing `email` block carries `watch` or `ignore` as a **flat array** instead of the
+`{ topics, senders }` object (`schema.md`):
+- **Empty array** (`[]`) → rewrite **silently** to `{ "topics": [], "senders": [] }` —
+  pure shape repair, no data judgment. Apply in **both** `config.json` **and** the AGENTS
+  config block (durable), or the AGENTS block alone (ephemeral), per the config↔AGENTS
+  sync invariant (`durability-modes.md`).
+- **Non-empty array** → each entry's bucket is genuinely ambiguous (`"acme.com"` could be
+  a topic or a sender). **Interactive:** ask which bucket each entry belongs to, then
+  write the object shape. **Routine / non-interactive:** **flag** it under the existing
+  pending-items reporting and **leave the block untouched** — never guess.
+
+This is the **single, narrow, documented exception** to the never-overwrite rule below —
+it repairs shape only, never the canonical shape itself.
+
+This is additive —
 **never overwrite** an existing `email` block a user has customized. Do **not** create
 the AGENTS *Agent state* block here; it is created lazily on the first email scan
 (`email.md`), so existing workspaces need no re-`setup`.
@@ -857,6 +874,12 @@ Smoke test (run against a live Notion workspace):
 9. **Reconcile on adopt:** adopting into a durable repo when an AGENTS
    `## Context` section exists appends those bullets into `CLAUDE.md`'s
    `## Second brain context` (deduped, hand-edits preserved).
+10. **Legacy watch/ignore migration:** adopting an `email` block with `"watch": []`
+    (flat array) silently rewrites it to `{ "topics": [], "senders": [] }` in **both**
+    stores (durable) or the AGENTS block (ephemeral); adopting `"watch": ["acme.com"]`
+    (non-empty flat array) is **prompted** for its bucket (interactive) or **flagged**
+    under pending items (Routine), **never** silently reshaped. An already-object-shaped
+    `watch`/`ignore` is left untouched (never-overwrite still holds).
 Assertions: config.json exists with non-empty second_brain_root, inbox
 (`data_source_url`, plus `triage_values` and `view_url` when setup recorded
 them per §3), tasks_personal, journal, archive, `home_page`, and
