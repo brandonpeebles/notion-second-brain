@@ -59,6 +59,11 @@ confirmations for on-demand extraction (set it `true` to write them into Raw
 unattended); render the 📧 section (New / Reminders / Updates / Waiting, plus any
 confirmations to extract and degradations) per `email.md`.
 
+The window is **day-scoped** (`email.md`'s `window_start` rule): a same-day re-run re-scans
+the **whole day**, so it re-renders the full day's groups with post-`last_scan_ts` items
+marked **`· new`** (or the "Nothing new since" line when none are new), per `email.md`'s
+**Rendering the 📧 section** — never a confusingly empty section.
+
 Because this is interactive, you **may** additionally:
 - Offer to extract any **surfaced** item on request (turn a Reminder/New item into a
   Raw row via the extraction shape in `email.md`).
@@ -107,7 +112,9 @@ Smoke test (run against a live Notion + Gmail workspace):
   row (flipping `auto_extract: true` writes it — `Source` = Gmail thread link, `Triage` =
   the resolved `new` value, key facts + any attachment pointers in the body); (g) under
   **Updates / heads-up** (relevance beat bulk-ignore); (h) under **Waiting — no response
-  yet**. Re-run same day → near-empty window. `last_scan_ts` in the AGENTS *Agent state*
+  yet**. Re-run same day → the **full day** re-renders with the new slice marked `· new` (or the
+"Nothing new since …" line when nothing postdates the cursor), **not** a near-empty window.
+`last_scan_ts` in the AGENTS *Agent state*
   block is a UTC instant with offset afterward.
 - **Watch/ignore:** add an `email.ignore` sender → a matching email is suppressed
   **unless** it matches an active topic/`watch` (relevance wins → surfaces under
