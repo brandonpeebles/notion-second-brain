@@ -281,7 +281,19 @@ on-demand extraction rather than written (set `true` to write them unattended);
 `awaiting_reply_days` (default 5) is the staleness threshold for the "Waiting — no
 response yet" sweep and `awaiting_lookback_days` (default 30) bounds how far back that
 sweep scans Sent mail; `wiki_match` opts into a per-candidate `notion-search`; `watch`/
-`ignore` are topic/sender lists. The full behavioral contract for every key lives
+`ignore` are topic/sender lists. `watch` and `ignore` are each a `{ "topics": [...], "senders": [...] }` object.
+**Legacy shape:** some early configs wrote them as **flat arrays** (`"watch": []`, or
+`"watch": ["acme.com"]`). `setup` migrates this narrowly — its **one documented exception
+to never-overwrite** (see `setup`'s email step): an **empty** array (`[]`) is **silently**
+rewritten to `{ "topics": [], "senders": [] }` (pure shape repair, no data judgment) in
+both stores; a **non-empty** flat array is **ambiguous per entry** (a bare `"acme.com"`
+could be a topic or a sender), so `setup` prompts for the bucket (interactive) or **flags**
+it under pending items (Routine) — never guesses. This repairs an existing shape; it does
+**not** change the canonical shape. Until migrated, a flat-array `watch`/`ignore` must be
+treated as unmigrated — do **not** index `.topics`/`.senders` on it (that yields
+`undefined`).
+
+The full behavioral contract for every key lives
 in `email.md` — this file only fixes the shape. **`last_scan_ts` is deliberately
 NOT in this block** — it is runtime state on the AGENTS page (see "Agent state
 block" below and `email.md`), so daily scanning never churns `config.json`.
